@@ -1,37 +1,9 @@
-from importlib.metadata import requires
-from inspect import Parameter
-from typing_extensions import Required
 import torch
 import torch.nn as nn
 from torch.nn import init
+from DynapSEtorch.surrogate import fast_sigmoid
 
 from collections import namedtuple
-
-class SpikeFunction(torch.autograd.Function):
-
-    scale = 10
-
-    @staticmethod
-    def pseudo_derivative(v):
-        #return torch.maximum(1 - torch.abs(v), torch.tensor(0)) * SpikeFunction.scale
-        return 1. / (SpikeFunction.scale * torch.abs(v) + 1.0) ** 2
-
-    @staticmethod
-    def forward(ctx, v_scaled):
-        ctx.save_for_backward(v_scaled)
-        return (v_scaled>0).type(v_scaled.dtype)
-
-    @staticmethod
-    def backward(ctx, dy):
-        (v_scaled,) = ctx.saved_tensors
-
-        dE_dz = dy
-        dz_dv_scaled = SpikeFunction.pseudo_derivative(v_scaled)
-        dE_dv_scaled = dE_dz * dz_dv_scaled
-
-        return dE_dv_scaled
-
-activation = SpikeFunction.apply
 
 amp = 1
 mA = 1e-3
@@ -298,7 +270,7 @@ class AdexLIF(nn.Module):
         Igaba_b += self.dt * dIgaba_b
 
         ## Fire
-        firing = activation(Isoma_mem - self.Isoma_th)
+        firing = fast_sigmoid(Isoma_mem - self.Isoma_th)
         refractory = refractory + (firing*self.soma_refP/self.dt).long()
 
         Isoma_ahp = Isoma_ahp + (self.Isoma_ahp_w * self.alpha_ahp) * firing

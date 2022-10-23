@@ -1,0 +1,21 @@
+name: DynapSEtorch
+channels:
+  - conda-forge
+  - pytorch 
+  - defaults
+dependencies:
+  - python=3.8
+  - pytorch
+  - torchvision
+  - torchaudio
+  - cudatoolkit=11.6
+  - pip=22.3
+  - pip:
+    - numpy
+    - matplotlib
+    - brian2
+    - sympy==1.4
+    - jupyter
+    - jupyterlab
+    - sphinx
+    - furo
