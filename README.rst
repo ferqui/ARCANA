@@ -1,3 +1,7 @@
+.. image:: https://readthedocs.org/projects/dynapsetorch/badge/?version=latest
+    :target: https://dynapsetorch.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+    
 Introduction
 ============
 
