@@ -1,61 +1,87 @@
 import torch
 
-class SpikeFunction(torch.autograd.Function):
+class FastSigmoid(torch.autograd.Function):
+    """Fast-sigmoid surrogated gradient
+    Apply the fast-sigmoid gradient as a surrogated gradient for the heavyside step function.
 
-    @staticmethod
-    def pseudo_derivative(V):
-        raise NotImplementedError(SpikeFunction.__name__) 
+    .. math::
+       \\frac{\\partial S}{\\partial V} = \\frac{1}{(\\lambda \left|v\\right| + 1.0)^2}
 
-    @staticmethod
-    def forward(ctx, V):
-        ctx.save_for_backward(V)
-        return (V>=0).type(V.dtype)    
-
-    @staticmethod
-    def backward(ctx, dy):
-        (V,) = ctx.saved_tensors
-
-        dE_dz = dy
-        dz_dv_scaled = SpikeFunction.pseudo_derivative(V)
-        dE_dv_scaled = dE_dz * dz_dv_scaled
-
-        return dE_dv_scaled
-
-class FastSigmoid(SpikeFunction):
+    Where :math:`\\lambda` is a scale factor with default value 10.
+    """
 
     scale = 10 # Scale value applied to fast sigmoid
 
     @staticmethod
     def pseudo_derivative(v):
-        """
-        Return the fast-sigmoid surrogated gradient
+        """Compute the gradient of the fast-sigmoid function.
 
         :param V: Neuron voltage to which threshold is applied to.
         :type V: float
-        :return: The surrogated gradient of V.
+        :return: The fast-sigmoid gradient of V.
         :rtype: float
 
         """
-        #return torch.maximum(1 - torch.abs(v), torch.tensor(0)) * SpikeFunction.scale
         return 1. / (FastSigmoid.scale * torch.abs(v) + 1.0) ** 2
+
+    @staticmethod
+    def forward(ctx, V):
+        """"""
+        ctx.save_for_backward(V)
+        return (V>=0).type(V.dtype) 
+
+    @staticmethod
+    def backward(ctx, dy):
+        """"""
+        (V,) = ctx.saved_tensors
+
+        dE_dz = dy
+        dz_dv_scaled = FastSigmoid.pseudo_derivative(V)
+        dE_dv_scaled = dE_dz * dz_dv_scaled
+
+        return dE_dv_scaled
 
 fast_sigmoid = FastSigmoid.apply
 
-class Triangular(SpikeFunction):
+class Triangular(torch.autograd.Function):
+    """Triangular surrogated gradient
+    Apply the triangular function as a surrogated gradient for the heavyside step function.
+
+    .. math::
+       \\frac{\\partial S}{\\partial V} = \\lambda max(1 - \\left|V\\right|, 0)
+
+    Where :math:`\\lambda` is a scale factor with default value 0.3.
+    """
 
     scale = 0.3 # Scale value applied to fast sigmoid
 
     @staticmethod
     def pseudo_derivative(v):
-        """
-        Return the fast-sigmoid surrogated gradient
+        """Compute the triangular surrogate gradient.
 
         :param V: Neuron voltage to which threshold is applied to.
         :type V: float
-        :return: The surrogated gradient of V.
+        :return: The surrogate triangular gradient of V.
         :rtype: float
 
         """
         return torch.maximum(1 - torch.abs(v), torch.tensor(0)) * Triangular.scale
+    
+    @staticmethod
+    def forward(ctx, V):
+        """"""
+        ctx.save_for_backward(V)
+        return (V>=0).type(V.dtype) 
+
+    @staticmethod
+    def backward(ctx, dy):
+        """"""
+        (V,) = ctx.saved_tensors
+
+        dE_dz = dy
+        dz_dv_scaled = Triangular.pseudo_derivative(V)
+        dE_dv_scaled = dE_dz * dz_dv_scaled
+
+        return dE_dv_scaled
 
 triangular = Triangular.apply
