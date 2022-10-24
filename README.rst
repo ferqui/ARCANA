@@ -1,6 +1,6 @@
 .. image:: https://readthedocs.org/projects/dynapsetorch/badge/?version=latest
-    :target: https://dynapsetorch.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
+  :target: https://dynapsetorch.readthedocs.io/en/latest/?badge=latest
+  :alt: Documentation Status
     
 Introduction
 ============
@@ -33,6 +33,21 @@ Installation
 
 Examples
 --------
+
+.. list-table::
+   :widths: 25 25
+   :header-rows: 1
+
+   * - Tutorial
+     - Colab link
+   * - DynapSEtorch comparison with Brian2 simulation.
+     - .. image:: https://colab.research.google.com/assets/colab-badge.svg
+        :alt: Open In Colab
+        :target: https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/examples/dynapse.ipynb
+   * - Learning using BPTT surrogated gradient on DynapSE neuron model.
+     - .. image:: https://colab.research.google.com/assets/colab-badge.svg
+        :alt: Open In Colab
+        :target: https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/examples/learning.ipynb
 
 Documentation
 -------------
