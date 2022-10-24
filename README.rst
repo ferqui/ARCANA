@@ -38,7 +38,7 @@ Examples
    :widths: 25 25
    :header-rows: 1
 
-   * - Tutorial
+   * - Example
      - Colab link
    * - DynapSEtorch comparison with Brian2 simulation.
      - .. image:: https://colab.research.google.com/assets/colab-badge.svg
