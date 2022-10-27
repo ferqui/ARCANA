@@ -47,7 +47,6 @@ todo_include_todos = False
 
 # -- Options for HTML output -------------------------------------------------
 html_theme = "sphinx_book_theme"
-# html_title = DynapSEtorch.__version__
 html_show_sourcelink = True
 html_sourcelink_suffix = ""
 
