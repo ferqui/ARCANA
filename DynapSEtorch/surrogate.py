@@ -17,10 +17,11 @@ class FastSigmoid(torch.autograd.Function):
     def pseudo_derivative(v):
         """Compute the gradient of the fast-sigmoid function.
 
-        :param V: Neuron voltage to which threshold is applied to.
-        :type V: float
-        :return: The fast-sigmoid gradient of V.
-        :rtype: float
+        Args:
+            V(float): Neuron voltage to which threshold is applied to.
+
+        Returns:
+            float: The fast-sigmoid gradient of V.
 
         """
         return 1.0 / (FastSigmoid.scale * torch.abs(v) + 1.0) ** 2
@@ -62,10 +63,11 @@ class Triangular(torch.autograd.Function):
     def pseudo_derivative(v):
         """Compute the triangular surrogate gradient.
 
-        :param V: Neuron voltage to which threshold is applied to.
-        :type V: float
-        :return: The surrogate triangular gradient of V.
-        :rtype: float
+        Args:
+            V(float): Neuron voltage to which threshold is applied to.
+
+        Returns:
+            float: The surrogate triangular gradient of V.
 
         """
         return torch.maximum(1 - torch.abs(v), torch.tensor(0)) * Triangular.scale
