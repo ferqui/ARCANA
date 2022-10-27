@@ -28,8 +28,8 @@ LINK to reference
 ## Examples
 | Example | Colab link |
 |---------|------------|
-| DynapSEtorch comparison with Brian2 simulation. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/examples/dynapse.ipynb) |
-| Learning using BPTT surrogated gradient on DynapSE neuron model. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/examples/learning.ipynb) |
+| DynapSEtorch comparison with Brian2 simulation. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/dynapse.ipynb) |
+| Learning using BPTT surrogated gradient on DynapSE neuron model. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/learning.ipynb) |
 
 ## Documentation
 
