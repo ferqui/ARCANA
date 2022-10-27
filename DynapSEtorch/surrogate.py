@@ -1,5 +1,6 @@
 import torch
 
+
 class FastSigmoid(torch.autograd.Function):
     """Fast-sigmoid surrogated gradient
     Apply the fast-sigmoid gradient as a surrogated gradient for the heavyside step function.
@@ -10,7 +11,7 @@ class FastSigmoid(torch.autograd.Function):
     Where :math:`\\lambda` is a scale factor with default value 10.
     """
 
-    scale = 10 # Scale value applied to fast sigmoid
+    scale = 10  # Scale value applied to fast sigmoid
 
     @staticmethod
     def pseudo_derivative(v):
@@ -22,13 +23,13 @@ class FastSigmoid(torch.autograd.Function):
         :rtype: float
 
         """
-        return 1. / (FastSigmoid.scale * torch.abs(v) + 1.0) ** 2
+        return 1.0 / (FastSigmoid.scale * torch.abs(v) + 1.0) ** 2
 
     @staticmethod
     def forward(ctx, V):
         """"""
         ctx.save_for_backward(V)
-        return (V>=0).type(V.dtype) 
+        return (V >= 0).type(V.dtype)
 
     @staticmethod
     def backward(ctx, dy):
@@ -41,7 +42,9 @@ class FastSigmoid(torch.autograd.Function):
 
         return dE_dv_scaled
 
+
 fast_sigmoid = FastSigmoid.apply
+
 
 class Triangular(torch.autograd.Function):
     """Triangular surrogated gradient
@@ -53,7 +56,7 @@ class Triangular(torch.autograd.Function):
     Where :math:`\\lambda` is a scale factor with default value 0.3.
     """
 
-    scale = 0.3 # Scale value applied to fast sigmoid
+    scale = 0.3  # Scale value applied to fast sigmoid
 
     @staticmethod
     def pseudo_derivative(v):
@@ -66,12 +69,12 @@ class Triangular(torch.autograd.Function):
 
         """
         return torch.maximum(1 - torch.abs(v), torch.tensor(0)) * Triangular.scale
-    
+
     @staticmethod
     def forward(ctx, V):
         """"""
         ctx.save_for_backward(V)
-        return (V>=0).type(V.dtype) 
+        return (V >= 0).type(V.dtype)
 
     @staticmethod
     def backward(ctx, dy):
@@ -83,5 +86,6 @@ class Triangular(torch.autograd.Function):
         dE_dv_scaled = dE_dz * dz_dv_scaled
 
         return dE_dv_scaled
+
 
 triangular = Triangular.apply

@@ -1,8 +1,3 @@
-.. DynapSEtorch documentation master file, created by
-   sphinx-quickstart on Fri Oct 21 15:26:58 2022.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 DynapSEtorch's documentation
 ============================
 
