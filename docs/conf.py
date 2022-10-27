@@ -33,9 +33,6 @@ napoleon_numpy_docstring = True
 
 # MyST settings
 nb_execution_mode = "off"
-# nb_execution_timeout = 300
-# nb_execution_show_tb = True
-# nb_execution_excludepatterns = ["large_datasets.ipynb"]
 suppress_warnings = ["myst.header"]
 
 templates_path = ["_templates"]

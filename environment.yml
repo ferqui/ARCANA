@@ -9,7 +9,7 @@ dependencies:
   - torchvision
   - torchaudio
   - cudatoolkit=11.6
-  - pip=22.3
+  - pip>=22.3
   - pip:
     - numpy
     - matplotlib
@@ -17,3 +17,8 @@ dependencies:
     - sympy==1.4
     - jupyter
     - jupyterlab
+    - sphinx>=4.0
+    - sphinx-book-theme
+    - myst_nb
+    - pbr
+    - ipywidgets
