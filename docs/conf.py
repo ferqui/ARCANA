@@ -24,7 +24,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
-    "sphinx.ext.viewcode"
+    "sphinx.ext.viewcode",
 ]
 
 # Napoleon settings
@@ -64,7 +64,7 @@ html_theme_options = {
     "use_fullscreen_button": True,
     "launch_buttons": {
         "notebook_interface": "jupyterlab",
-        "colab_url": "https://colab.research.google.com/"
+        "colab_url": "https://colab.research.google.com/",
     },
 }
 
