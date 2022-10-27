@@ -13,18 +13,18 @@ from pathlib import Path
 class RoshamboDataset(Dataset):
     """`EMG from forearm datasets for roshambo hand gestures recognition <https://zenodo.org/record/3194792#.Y1qqO3ZBxEY>`_
 
-    Events have (xytp) ordering.
     ::
+
         @dataset{donati_elisa_2019_3194792,
-            author       = {Donati, Elisa},
-            title        = {{EMG from forearm datasets for hand gestures
-                            recognition}},
-            month        = may,
-            year         = 2019,
-            publisher    = {Zenodo},
-            doi          = {10.5281/zenodo.3194792},
-            url          = {https://doi.org/10.5281/zenodo.3194792}
+            author = {Donati, Elisa},
+            title = {EMG from forearm datasets for hand gestures recognition},
+            month = may,
+            year = 2019,
+            publisher = {Zenodo},
+            doi = {10.5281/zenodo.3194792},
+            url = {https://doi.org/10.5281/zenodo.3194792}
         }
+
     Parameters:
         save_to (string): Location to save files to on disk.
         train (bool): If True, uses training subset, otherwise testing subset.

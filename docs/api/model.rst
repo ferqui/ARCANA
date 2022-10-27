@@ -1,5 +1,5 @@
-DynapSEtorch.model
-==================
+model
+=====
 
 How to use model
 ----------------

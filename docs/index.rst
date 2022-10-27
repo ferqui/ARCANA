@@ -5,31 +5,22 @@ DynapSEtorch's documentation
 
    This project is under active development.
 
-Indices and tables
-==================
+.. include:: introduction/introduction.rst
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+Getting started
+---------------
+:ref:`Install DynapSEtorch <installation>` via pypi or anaconda.
 
-Contents
---------
+.. include:: about/citation.rst
+
+.. include:: about/acknowledgments.rst
+
+.. include:: about/copyright.rst
 
 .. toctree::
-   :maxdepth: 1
+   :hidden:
 
-   introduction
-   getting-start
+   introduction/introduction
+   getting_started/getting-start
    examples/examples
-   DynapSEtorch
-   DynapSEtorch.model
-   DynapSEtorch.surrogate
-
-Check out the :doc:`getting-start` section for further information, including how to
-:ref:`install <installation>` the project.
-
-.. include:: citation.rst
-
-.. include:: acknowledgments.rst
-
-.. include:: copyright.rst
+   api/api.rst

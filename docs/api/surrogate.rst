@@ -1,5 +1,5 @@
-DynapSEtorch.surrogate
-======================
+surrogate
+=========
 
 How to use surrogate
 --------------------
