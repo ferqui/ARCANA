@@ -17,5 +17,3 @@ dependencies:
     - sympy==1.4
     - jupyter
     - jupyterlab
-    - sphinx
-    - furo

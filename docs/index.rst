@@ -20,6 +20,7 @@ Contents
 
    introduction
    getting-start
+   examples/examples
    DynapSEtorch
    DynapSEtorch.model
    DynapSEtorch.surrogate
