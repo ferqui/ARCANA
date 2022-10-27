@@ -17,6 +17,7 @@ dependencies:
     - sympy==1.4
     - jupyter
     - jupyterlab
+    - tonic
     - sphinx>=4.0
     - sphinx-book-theme
     - myst_nb
