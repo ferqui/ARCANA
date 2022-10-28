@@ -9,6 +9,9 @@ from typing import Callable, Optional
 from sklearn import preprocessing
 from pathlib import Path
 
+from scipy import signal, ndimage
+from scipy.interpolate import interp1d
+
 
 class RoshamboDataset(Dataset):
     """`EMG from forearm datasets for roshambo hand gestures recognition <https://zenodo.org/record/3194792#.Y1qqO3ZBxEY>`_
@@ -64,6 +67,8 @@ class RoshamboDataset(Dataset):
                 "*_ann.npy"
             )
 
+            fs = 200  # 200 Hz sampling rate
+            window = int(0.2 * fs)  # Time window of 200 ms
             X = []
             y = []
             for f in files:
@@ -72,16 +77,27 @@ class RoshamboDataset(Dataset):
                 filename = filename[:-7] + "emg.npy"
                 data = np.load(filename)
 
-                indices = [0]
-                previous_val = labels[0]
-                for i, value in enumerate(labels):
-                    if value != previous_val:
-                        X.append(data[indices[-1] : i, :])
-                        y.append(previous_val)
-                        indices.append(i)
-                    previous_val = value
+                k_old = 0
+                k_new = 0
+                for i in range(0, len(labels) - 1):
+                    if labels[i] != labels[i + 1]:
+                        k_new = i
 
-            X = np.array(X, dtype=object)
+                        emg_singlerep = data[k_old:k_new]
+                        n_iter = int(len(emg_singlerep) / window)
+                        for k in range(0, n_iter + 1):
+                            start = k * window - 1
+                            stop = (k + 1) * window - 1
+                            if k == 0:
+                                start = 0
+                                stop = 40
+
+                            emg = emg_singlerep[start:stop]
+                            if start < 399 and len(emg) == window:
+                                X.append(emg)
+                                y.append(labels[i])
+                        k_old = k_new + 1
+
             y = np.array(y)
 
             le = preprocessing.LabelEncoder()
@@ -106,7 +122,9 @@ class RoshamboDataset(Dataset):
 
     def __getitem__(self, idx):
         sensor = self.data["X"][idx]
-        sensor = signal.resample(sensor, sensor.shape[0] * 5)
+        sensor = signal.resample(
+            sensor, sensor.shape[0] * 5
+        )  # Convert from 200Hz to 1KHz
         sensor = torch.tensor(sensor)
 
         label = torch.tensor(self.data["y"][idx])
