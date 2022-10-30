@@ -6,3 +6,5 @@ Examples
    
    dynapse
    learning
+   mismatch
+   reconstruction
