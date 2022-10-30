@@ -46,6 +46,7 @@ class FastSigmoid(torch.autograd.Function):
 
 fast_sigmoid = FastSigmoid.apply
 
+
 class Step(torch.autograd.Function):
     """Step function surrogated gradient
     Use the step function as a surrogated gradient of itself
@@ -81,7 +82,9 @@ class Step(torch.autograd.Function):
 
         return dE_dv_scaled
 
+
 step = Step.apply
+
 
 class Triangular(torch.autograd.Function):
     """Triangular surrogated gradient
