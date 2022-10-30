@@ -46,6 +46,42 @@ class FastSigmoid(torch.autograd.Function):
 
 fast_sigmoid = FastSigmoid.apply
 
+class Step(torch.autograd.Function):
+    """Step function surrogated gradient
+    Use the step function as a surrogated gradient of itself
+    """
+
+    @staticmethod
+    def pseudo_derivative(V):
+        """Compute the step function surrogate gradient.
+
+        Args:
+            V(float): Neuron voltage to which threshold is applied to.
+
+        Returns:
+            float: The surrogate triangular gradient of V.
+
+        """
+        return (V >= 0).type(V.dtype)
+
+    @staticmethod
+    def forward(ctx, V):
+        """"""
+        ctx.save_for_backward(V)
+        return (V >= 0).type(V.dtype)
+
+    @staticmethod
+    def backward(ctx, dy):
+        """"""
+        (V,) = ctx.saved_tensors
+
+        dE_dz = dy
+        dz_dv_scaled = Step.pseudo_derivative(V)
+        dE_dv_scaled = dE_dz * dz_dv_scaled
+
+        return dE_dv_scaled
+
+step = Step.apply
 
 class Triangular(torch.autograd.Function):
     """Triangular surrogated gradient
