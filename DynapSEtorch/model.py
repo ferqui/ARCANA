@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import init
-from DynapSEtorch.surrogate import fast_sigmoid
+from DynapSEtorch.surrogate import fast_sigmoid, triangular, step
 
 from collections import namedtuple
 
@@ -104,29 +104,29 @@ class ADM(nn.Module):
             output = torch.zeros(
                 input_signal.shape[0], self.N * 2, device=input_signal.device
             )
-            self.refrac = torch.zeros(
-                input_signal.shape[0], self.N, device=input_signal.device
-            )
+            output_p = torch.zeros_like(input_signal)
+            output_n = torch.zeros_like(input_signal)
+            self.refrac = torch.zeros_like(input_signal)
             self.DC_Voltage = input_signal
         else:
 
             self.refrac[self.refrac > 0] -= 1
 
-            output_p = (input_signal >= (self.DC_Voltage + self.threshold_up)) * (
-                self.refrac == 0
-            )
-            self.refrac[output_p] = self.refractory
+            output_p = fast_sigmoid(
+                input_signal - (self.DC_Voltage + self.threshold_up)
+            ) * (self.refrac == 0)
+            self.refrac[output_p.bool()] = self.refractory
             self.DC_Voltage += output_p * self.threshold_up
 
-            output_n = (input_signal <= (self.DC_Voltage - self.threshold_down)) * (
-                self.refrac == 0
-            )
-            self.refrac[output_n] = self.refractory
+            output_n = fast_sigmoid(
+                (self.DC_Voltage - self.threshold_down) - input_signal
+            ) * (self.refrac == 0)
+            self.refrac[output_n.bool()] = self.refractory
             self.DC_Voltage -= output_n * self.threshold_down
 
             output = torch.cat([output_p.float(), output_n.float()], dim=1)
 
-        return output
+        return output, output_p, output_n
 
 
 class AdexLIF(nn.Module):
