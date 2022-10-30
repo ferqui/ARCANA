@@ -35,6 +35,7 @@ class RoshamboDataset(Dataset):
         target_transform (callable, optional): A callable of transforms to apply to the targets/labels.
         transforms (callable, optional): A callable of transforms that is applied to both data and
                                          labels at the same time.
+        upsample (int): Upsample factor used to resample the EMG signal (default: 5 ~ 1KHz)
     Returns:
         A dataset object that can be indexed or iterated over. One sample returns a tuple of (sensor readings, targets).
     """
@@ -44,6 +45,7 @@ class RoshamboDataset(Dataset):
         save_to: str,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
+        upsample: Optional[int] = 5,
     ):
         save_to = os.path.expanduser(save_to)
         super().__init__(
@@ -54,6 +56,7 @@ class RoshamboDataset(Dataset):
 
         base_url = "https://zenodo.org/record/3194792/files/Roshambo.zip?download=1"
 
+        self.upsample = upsample
         self.transform = transform
         self.target_transform = target_transform
 
@@ -124,9 +127,9 @@ class RoshamboDataset(Dataset):
     def __getitem__(self, idx):
         sensor = self.data["X"][idx]
         sensor = signal.resample(
-            sensor, sensor.shape[0] * 5
+            sensor, sensor.shape[0] * self.upsample
         )  # Convert from 200Hz to 1KHz
-        sensor = torch.tensor(sensor)
+        sensor = torch.tensor(sensor, dtype=torch.float32)
 
         label = torch.tensor(self.data["y"][idx])
         if self.transform:
