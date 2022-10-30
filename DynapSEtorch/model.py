@@ -57,6 +57,78 @@ Ut = 25.0 * mV  # Thermal voltage
 I0 = 1 * pA  # Dark current
 
 
+class ADM(nn.Module):
+    """Adaptive Delta Modulation (ADM) module
+    Converts an analog signal into UP and DOWN spikes using the Adaptive Delta Modulation scheme.
+    """
+
+    def __init__(
+        self, N: int, threshold_up: float, threshold_down: float, refractory: int
+    ):
+        super(ADM, self).__init__()
+
+        self.refractory = nn.Parameter(
+            torch.tensor(refractory).float(), requires_grad=True
+        )
+        self.threshold_up = nn.Parameter(torch.tensor(threshold_up), requires_grad=True)
+        self.threshold_down = nn.Parameter(
+            torch.tensor(threshold_down), requires_grad=True
+        )
+        self.N = N
+
+        self.refrac = None
+        self.DC_Voltage = None
+
+    def reconstruct(self, spikes, initial_value=0):
+        """Reconstruct an analog signal based on the UP and DOWN spikes produced by the ADM module.
+        Everytime the algorithm receives an UP/DOWN spike, the reconstructed signal is increment/decrement by the UP/DOWN threshold amount.
+        """
+        reconstructed = torch.zeros(
+            spikes.shape[0], spikes.shape[1], spikes.shape[2] // 2
+        )
+        reconstructed[:, 0, :] = initial_value
+        for t in range(1, spikes.shape[1]):
+            spikes_p = spikes[:, t, : -spikes.shape[-1] // 2]
+            spikes_n = spikes[:, t, spikes.shape[-1] // 2 :]
+
+            reconstructed[:, t] = (
+                reconstructed[:, t - 1]
+                + self.threshold_up * spikes_p
+                - self.threshold_down * spikes_n
+            )
+
+        return reconstructed
+
+    def forward(self, input_signal):
+        if self.DC_Voltage is None:
+            output = torch.zeros(
+                input_signal.shape[0], self.N * 2, device=input_signal.device
+            )
+            self.refrac = torch.zeros(
+                input_signal.shape[0], self.N, device=input_signal.device
+            )
+            self.DC_Voltage = input_signal
+        else:
+
+            self.refrac[self.refrac > 0] -= 1
+
+            output_p = (input_signal >= (self.DC_Voltage + self.threshold_up)) * (
+                self.refrac == 0
+            )
+            self.refrac[output_p] = self.refractory
+            self.DC_Voltage += output_p * self.threshold_up
+
+            output_n = (input_signal <= (self.DC_Voltage - self.threshold_down)) * (
+                self.refrac == 0
+            )
+            self.refrac[output_n] = self.refractory
+            self.DC_Voltage -= output_n * self.threshold_down
+
+            output = torch.cat([output_p.float(), output_n.float()], dim=1)
+
+        return output
+
+
 class AdexLIF(nn.Module):
     AdexLIFState = namedtuple(
         "AdexLIFState",
@@ -152,7 +224,7 @@ class AdexLIF(nn.Module):
             "Inmda_tau", torch.tensor(2 * I0)
         )  # Leakage current, i.e. how much current is constantly leaked away (time-constant)
         self.register_buffer(
-            "Inmda_w0", torch.tensor(100 * I0)
+            "Inmda_w0", self.mismatch(100)  # torch.tensor(100 * I0)
         )  # Base synaptic weight, to convert unitless weight (set in synapse) to current
         self.register_buffer(
             "Inmda_thr", torch.tensor(I0)
@@ -167,7 +239,7 @@ class AdexLIF(nn.Module):
             "Iampa_tau", torch.tensor(20 * I0)
         )  # Synaptic time constant current, the time constant is inversely proportional to I_tau
         self.register_buffer(
-            "Iampa_w0", torch.tensor(100 * I0)
+            "Iampa_w0", self.mismatch(100)  # torch.tensor(100 * I0)
         )  # Base synaptic weight current which can be scaled by the .weight parameter
 
         # #INH, SLOW_INH, GABA_B, subtractive ##################################################################
@@ -179,7 +251,7 @@ class AdexLIF(nn.Module):
             "Igaba_b_tau", torch.tensor(5 * I0)
         )  # Synaptic time constant current, the time constant is inversely proportional to I_tau
         self.register_buffer(
-            "Igaba_b_w0", torch.tensor(100 * I0)
+            "Igaba_b_w0", self.mismatch(100)  # torch.tensor(100 * I0)
         )  # Base synaptic weight current which can be scaled by the .weight parameter
 
         # #FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive ############################################
@@ -191,26 +263,35 @@ class AdexLIF(nn.Module):
             "Igaba_a_tau", torch.tensor(5 * I0)
         )  # Synaptic time constant current, the time constant is inversely proportional to I_tau
         self.register_buffer(
-            "Igaba_a_w0", torch.tensor(100 * I0)
+            "Igaba_a_w0", self.mismatch(100)  # torch.tensor(100 * I0)
         )  # Base synaptic weight current which can be scaled by the .weight parameter
         # ##################
 
         self.weight_nmda = torch.nn.Parameter(
-            torch.ones(input_per_synapse[0], num_neurons) * 0, requires_grad=True
+            torch.ones(input_per_synapse[0], num_neurons), requires_grad=True
         )
         self.weight_ampa = torch.nn.Parameter(
-            torch.ones(input_per_synapse[0], num_neurons) * 2, requires_grad=True
+            torch.ones(input_per_synapse[1], num_neurons), requires_grad=True
         )
         self.weight_gaba_a = torch.nn.Parameter(
-            torch.ones(input_per_synapse[0], num_neurons) * 0, requires_grad=True
+            torch.ones(input_per_synapse[2], num_neurons), requires_grad=True
         )
         self.weight_gaba_b = torch.nn.Parameter(
-            torch.ones(input_per_synapse[0], num_neurons) * 0, requires_grad=True
+            torch.ones(input_per_synapse[3], num_neurons), requires_grad=True
         )
 
         self.dt = 1 * ms
 
         self.state = None
+
+    def mismatch(self, initial):
+        return (
+            torch.maximum(
+                torch.tensor(I0),
+                initial + initial * 0.1 * torch.rand(1, self.num_neurons),
+            )
+            * I0
+        )
 
     def init_state(self, input):
         ## Soma states
@@ -365,10 +446,10 @@ class AdexLIF(nn.Module):
         low_current_gaba_b = self.I0 * (Igaba_b.detach() <= self.I0)
         Igaba_b_g = (
             self.alpha_gaba_b * self.Igaba_b_tau
-        )  # GABA A synapse gain expressed in terms of its tau current
+        )  # GABA B synapse gain expressed in terms of its tau current
         Igaba_b_g_shunt = (
             Igaba_b_g * (Igaba_b.detach() > self.I0) + low_current_gaba_b
-        )  # Shunt g current if Igaba_a goes to I0
+        )  # Shunt g current if Igaba_b goes to I0
 
         Igaba_b_tau_shunt = (
             self.Igaba_b_tau * (Igaba_b.detach() > I0) + low_current_gaba_b

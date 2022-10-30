@@ -45,6 +45,7 @@ class RoshamboDataset(Dataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
     ):
+        save_to = os.path.expanduser(save_to)
         super().__init__(
             save_to,
             transform=transform,
