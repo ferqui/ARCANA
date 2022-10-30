@@ -8,3 +8,4 @@ API reference
    datasets
    model
    surrogate
+   networks
