@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import init
+from typing import Optional, Sequence
 from DynapSEtorch.surrogate import fast_sigmoid, triangular, step
 
 from collections import namedtuple
@@ -112,7 +113,14 @@ class ADM(nn.Module):
 class LIF(nn.Module):
     LIFState = namedtuple("LIFState", ["V", "S"])
 
-    def __init__(self, n_in, n_out, thr, tau, dt):
+    def __init__(
+        self,
+        n_in: int,
+        n_out: int,
+        thr: Optional[float] = 1.0,
+        tau: Optional[float] = 20.0,
+        dt: Optional[float] = 1.0,
+    ):
         super(LIF, self).__init__()
 
         self.dt = dt
@@ -123,7 +131,7 @@ class LIF(nn.Module):
 
         distribution = torch.distributions.gamma.Gamma(3, 3 / tau)
         tau = distribution.rsample((1, n_out)).clamp(3, 100)
-        self.register_buffer("alpha", torch.exp(dt / tau).float())
+        self.register_buffer("alpha", torch.exp(-dt / tau).float())
         self.register_buffer("thr", torch.tensor(thr).float())
 
         self.reset()
@@ -169,7 +177,9 @@ class AdexLIF(nn.Module):
         ],
     )
 
-    def __init__(self, num_neurons=1, input_per_synapse=[1, 1, 1, 1]):
+    def __init__(
+        self, num_neurons: int = 1, input_per_synapse: Sequence[int] = [1, 1, 1, 1]
+    ):
         super(AdexLIF, self).__init__()
 
         self.num_neurons = num_neurons
