@@ -58,7 +58,7 @@ class DelayChainLIF(nn.Module):
         dt: float = 1.0,
         activation_fn: torch.autograd.Function = fast_sigmoid,
     ):
-        super(DelayChain, self).__init__()
+        super(DelayChainLIF, self).__init__()
 
         self.n_pool = n_pool
         self.n_channels = n_channels
