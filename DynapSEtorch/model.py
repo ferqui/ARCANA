@@ -293,6 +293,9 @@ class AdexLIF(nn.Module):
             * I0
         )
 
+    def reset(self):
+        self.state = None
+
     def init_state(self, input):
         ## Soma states
         Isoma_mem = torch.empty(input.shape[0], self.num_neurons, device=input.device)
