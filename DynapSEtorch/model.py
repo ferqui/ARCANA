@@ -28,29 +28,6 @@ us = 1e-6
 ns = 1e-9
 ps = 1e-12
 
-# amp = 1e3
-# mA = 1
-# uA = 1e-3
-# nA = 1e-6
-# pA = 1e-9
-
-# volt = 1e3
-# mV = 1
-# uV = 1e-3
-# nV = 1e-6
-
-# farad = 1e3
-# mF = 1
-# uF = 1e-3
-# nF = 1e-6
-# pF = 1e-9
-
-# second = 1e3
-# ms = 1
-# us = 1e-3
-# ns = 1e-6
-# ps = 1e-9
-
 kappa_n = 0.75  # Subthreshold slope factor (n-type transistor)
 kappa_p = 0.66  # Subthreshold slope factor (p-type transistor)
 Ut = 25.0 * mV  # Thermal voltage
@@ -76,6 +53,9 @@ class ADM(nn.Module):
         )
         self.N = N
 
+        self.reset()
+
+    def reset(self):
         self.refrac = None
         self.DC_Voltage = None
 
@@ -127,6 +107,52 @@ class ADM(nn.Module):
             output = torch.cat([output_p.float(), output_n.float()], dim=1)
 
         return output, output_p, output_n
+
+
+class LIF(nn.Module):
+    LIFState = namedtuple("LIFState", ["V", "S"])
+
+    def __init__(self, n_in, n_out, thr, tau, dt):
+        super(LIF, self).__init__()
+
+        self.dt = dt
+        self.n_in = n_in
+        self.n_out = n_out
+
+        self.base_layer = nn.Linear(n_in, n_out, bias=False)
+
+        distribution = torch.distributions.gamma.Gamma(3, 3 / tau)
+        tau = distribution.rsample((1, n_out)).clamp(3, 100)
+        self.register_buffer("alpha", torch.exp(dt / tau).float())
+        self.register_buffer("thr", torch.tensor(thr).float())
+
+        self.reset()
+
+    def reset(self):
+        self.state = None
+
+    def init_state(self, input):
+        self.state = self.LIFState(
+            V=torch.zeros(input.shape[0], self.n_out, device=input.device),
+            S=torch.zeros(input.shape[0], self.n_out, device=input.device),
+        )
+        return self.state
+
+    def forward(self, input):
+        if self.state is None:
+            self.init_state(input)
+
+        V = self.state.V
+        S = self.state.S
+
+        V = (self.alpha * V + (1 - self.alpha) * self.base_layer(input)) * (
+            1 - S.detach()
+        )
+        S = fast_sigmoid(V - self.thr)
+
+        self.state = self.LIFState(V=V, S=S)
+
+        return S
 
 
 class AdexLIF(nn.Module):
@@ -282,7 +308,7 @@ class AdexLIF(nn.Module):
 
         self.dt = 1 * ms
 
-        self.state = None
+        self.reset()
 
     def mismatch(self, initial):
         return (
@@ -313,7 +339,7 @@ class AdexLIF(nn.Module):
         Igaba_b = torch.empty(input.shape[0], self.num_neurons, device=input.device)
         init.constant_(Igaba_b, self.Igaba_b_init)
 
-        state = self.AdexLIFState(
+        self.state = self.AdexLIFState(
             Isoma_mem=Isoma_mem,
             Isoma_ahp=torch.zeros(
                 input.shape[0], self.num_neurons, device=input.device
@@ -326,7 +352,7 @@ class AdexLIF(nn.Module):
             Igaba_a=Igaba_a,
             Igaba_b=Igaba_b,
         )
-        return state
+        return self.state
 
     def detach(self):
         for state in self.state:

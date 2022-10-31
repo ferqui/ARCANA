@@ -20,20 +20,25 @@ class DelayChain(nn.Module):
         self.readout = AdexLIF(n_out, [0, n_pool * n_channels * 2, 0, 0])
 
     def reset(self):
+        self.adm_encoder.reset()
         for layer in self.pool_layer:
             layer.reset()
         self.readout.reset()
 
     def forward(self, input):
-        in_spikes = self.adm_encoder(input)
+        in_spikes, _, _ = self.adm_encoder(input)
         out_spikes = []
         for pool in self.pool_layer:
+            if pool.state is None:
+                pool.state = pool.init_state(in_spikes)
             s_o = pool(input_ampa=in_spikes)
             out_spikes.append(s_o)
             in_spikes = s_o
         pool_spikes = torch.stack(out_spikes, dim=1)
+        if self.readout.state is None:
+            self.readout.state = self.readout.init_state(pool_spikes)
         ro_spikes = self.readout(
-            pool_spikes.view(-1, self.n_pool * self.n_channels * 2)
+            input_ampa=pool_spikes.view(-1, self.n_pool * self.n_channels * 2)
         )
         return ro_spikes, pool_spikes
 
@@ -61,7 +66,12 @@ class EIBalancedNetwork(nn.Module):
         if self.out_in is None:
             self.out_in = torch.zeros(input.shape[0], self.n_class, device=input.device)
 
+        if self.ex_layer.state is None:
+            self.ex_layer.state = self.ex_layer.init_state(input)
         out_ex = self.ex_layer(input_nmda=input, input_gaba_b=self.out_in)
+
+        if self.out_in.state is None:
+            self.out_in.state = self.out_in.init_state(input)
         self.out_in = self.in_layer(input_nmda=out_ex, input_gaba_b=self.out_in)
 
         return out_ex
