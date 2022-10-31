@@ -7,6 +7,40 @@ Dynapse model
 Equation
 Image
 
+## Requirements
+
+## Installation
+
+```
+pip install git+https://github.com/ferqui/DynapSEtorch.git
+```
+
+## Examples
+| Example | Colab link |
+|---------|------------|
+| DynapSEtorch comparison with Brian2 simulation. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/dynapse.ipynb) |
+| Learning using BPTT surrogated gradient on DynapSE neuron model. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/learning.ipynb) |
+| Mismatch on DynapSE neuron model. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/mismatch.ipynb) |
+| Reconstruction of a ADM codified signal. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/reconstruction.ipynb) |
+
+## Documentation
+
+## Contributing
+
+If you want to contribute to this package develop code, you can install it in edit mode:
+
+```
+git clone https://github.com/ferqui/DynapSEtorch.git
+cd DynapSEtorch
+pip install -e .
+```
+
+## Acknowledgments
+
+DynapSEtorch is currently maintained by the University of Cádiz and The Institute of Neuroinformatics (INI), UZH and ETHZ. It was initially developed by Fernando M. Quintana.
+
+Additional contributions were made by ....
+
 ## Citation
 
 If you find DynapSEtorch useful in your work, please cite the following source:
@@ -21,25 +55,6 @@ LINK to reference
           year    = {202X}
   }
 ```
-## Requirements
-
-## Installation
-
-## Examples
-| Example | Colab link |
-|---------|------------|
-| DynapSEtorch comparison with Brian2 simulation. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/dynapse.ipynb) |
-| Learning using BPTT surrogated gradient on DynapSE neuron model. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/learning.ipynb) |
-
-## Documentation
-
-## Contributing
-
-## Acknowledgments
-
-DynapSEtorch is currently maintained by the University of Cádiz and The Institute of Neuroinformatics (INI), UZH and ETHZ. It was initially developed by Fernando M. Quintana.
-
-Additional contributions were made by ....
 
 ## License & Copyright
 
