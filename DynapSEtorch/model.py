@@ -46,7 +46,7 @@ class ADM(nn.Module):
         threshold_up: float,
         threshold_down: float,
         refractory: int,
-        activation_fn: Callable[[float], float] = fast_sigmoid,
+        activation_fn: torch.autograd.Function = fast_sigmoid,
     ):
         super(ADM, self).__init__()
 
@@ -123,10 +123,10 @@ class LIF(nn.Module):
         self,
         n_in: int,
         n_out: int,
-        thr: Optional[float] = 1.0,
-        tau: Optional[float] = 20.0,
-        dt: Optional[float] = 1.0,
-        activation_fn: Callable[[float], float] = fast_sigmoid,
+        thr: float = 1.0,
+        tau: float = 20.0,
+        dt: float = 1.0,
+        activation_fn: torch.autograd.Function = fast_sigmoid,
     ):
         super(LIF, self).__init__()
 
@@ -189,7 +189,7 @@ class AdexLIF(nn.Module):
         self,
         num_neurons: int = 1,
         input_per_synapse: Sequence[int] = [1, 1, 1, 1],
-        activation_fn: Callable[[float], float] = fast_sigmoid,
+        activation_fn: torch.autograd.Function = fast_sigmoid,
     ):
         super(AdexLIF, self).__init__()
 
