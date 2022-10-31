@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import init
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 from DynapSEtorch.surrogate import fast_sigmoid, triangular, step
 
 from collections import namedtuple
@@ -41,10 +41,16 @@ class ADM(nn.Module):
     """
 
     def __init__(
-        self, N: int, threshold_up: float, threshold_down: float, refractory: int
+        self,
+        N: int,
+        threshold_up: float,
+        threshold_down: float,
+        refractory: int,
+        activation_fn: Callable[[float], float] = fast_sigmoid,
     ):
         super(ADM, self).__init__()
 
+        self.activation_fn = activation_fn
         self.refractory = nn.Parameter(
             torch.tensor(refractory).float(), requires_grad=True
         )
@@ -93,13 +99,13 @@ class ADM(nn.Module):
 
             self.refrac[self.refrac > 0] -= 1
 
-            output_p = fast_sigmoid(
+            output_p = self.activation_fn(
                 input_signal - (self.DC_Voltage + self.threshold_up)
             ) * (self.refrac == 0)
             self.refrac[output_p.bool()] = self.refractory
             self.DC_Voltage += output_p * self.threshold_up
 
-            output_n = fast_sigmoid(
+            output_n = self.activation_fn(
                 (self.DC_Voltage - self.threshold_down) - input_signal
             ) * (self.refrac == 0)
             self.refrac[output_n.bool()] = self.refractory
@@ -120,6 +126,7 @@ class LIF(nn.Module):
         thr: Optional[float] = 1.0,
         tau: Optional[float] = 20.0,
         dt: Optional[float] = 1.0,
+        activation_fn: Callable[[float], float] = fast_sigmoid,
     ):
         super(LIF, self).__init__()
 
@@ -127,6 +134,7 @@ class LIF(nn.Module):
         self.n_in = n_in
         self.n_out = n_out
 
+        self.activation_fn = activation_fn
         self.base_layer = nn.Linear(n_in, n_out, bias=False)
 
         distribution = torch.distributions.gamma.Gamma(3, 3 / tau)
@@ -156,7 +164,7 @@ class LIF(nn.Module):
         V = (self.alpha * V + (1 - self.alpha) * self.base_layer(input)) * (
             1 - S.detach()
         )
-        S = fast_sigmoid(V - self.thr)
+        S = self.activation_fn(V - self.thr)
 
         self.state = self.LIFState(V=V, S=S)
 
@@ -178,11 +186,15 @@ class AdexLIF(nn.Module):
     )
 
     def __init__(
-        self, num_neurons: int = 1, input_per_synapse: Sequence[int] = [1, 1, 1, 1]
+        self,
+        num_neurons: int = 1,
+        input_per_synapse: Sequence[int] = [1, 1, 1, 1],
+        activation_fn: Callable[[float], float] = fast_sigmoid,
     ):
         super(AdexLIF, self).__init__()
 
         self.num_neurons = num_neurons
+        self.activation_fn = activation_fn
 
         #  SUBSTRATE  #########################################################################################
         self.register_buffer(
@@ -539,7 +551,7 @@ class AdexLIF(nn.Module):
         Igaba_b += self.dt * dIgaba_b
 
         ## Fire
-        firing = fast_sigmoid(Isoma_mem - self.Isoma_th)
+        firing = self.activation_fn(Isoma_mem - self.Isoma_th)
         refractory = refractory + (firing * self.soma_refP / self.dt).long()
 
         Isoma_ahp = Isoma_ahp + (self.Isoma_ahp_w * self.alpha_ahp) * firing
