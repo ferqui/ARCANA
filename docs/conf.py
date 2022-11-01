@@ -19,7 +19,7 @@ master_doc = "index"
 
 extensions = [
     "myst_nb",
-    "pbr.sphinxext",
+    # "pbr.sphinxext",
     "sphinx.ext.duration",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",

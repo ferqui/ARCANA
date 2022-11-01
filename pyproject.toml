@@ -7,12 +7,14 @@ license = "GNU General Public License v3 (GPLv3)"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.8"
-torch = "^1.13.0"
-numpy = "^1.23.4"
-matplotlib = "^3.6.1"
+python = "^3.7"
+torch = "^1.12.1"
+numpy = [{ version = "==1.21.6", python = "~3.7"},
+         { version = "^1.23.4", python = "~3.8"}]
+matplotlib = [{ version = "<=3.5.3", python = "~3.7"},
+              { version = "^3.6.1", python = "~3.8"}]
 Brian2 = "^2.5.1"
-sympy = "==1.4"
+sympy = "1.4"
 jupyter = "^1.0.0"
 jupyterlab = "^3.5.0"
 tonic = "^1.2.2"
