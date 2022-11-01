@@ -4,6 +4,6 @@ Networks
 How to use networks
 --------------------
 
-.. automodule:: DynapSEtorch.networks
+.. automodule:: dynapsetorch.networks
     :members:
     :show-inheritance:

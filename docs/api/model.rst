@@ -4,6 +4,6 @@ model
 How to use model
 ----------------
 
-.. automodule:: DynapSEtorch.model
+.. automodule:: dynapsetorch.model
     :members:
     :show-inheritance:

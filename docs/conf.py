@@ -1,4 +1,4 @@
-import DynapSEtorch
+import dynapsetorch
 
 # Configuration file for the Sphinx documentation builder.
 #
