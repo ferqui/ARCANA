@@ -67,17 +67,17 @@ class DelayChainLIF(nn.Module):
         for _ in range(n_pool):
             pool = LIF(
                 n_channels * 2,
-                n_channels,
+                n_channels * 2,
                 thr=thr,
                 tau=tau,
                 dt=dt,
                 activation_fn=activation_fn,
             )
-            pool.base_layer.weight.data *= torch.eye(n_channels * 2)
+            pool.base_layer.weight.data = torch.eye(n_channels * 2) * 1
             self.pool_layer.append(pool)
         self.readout = LIF(
-            n_out,
             n_pool * n_channels * 2,
+            n_out,
             thr=thr,
             tau=tau,
             dt=dt,

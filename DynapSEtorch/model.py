@@ -4,6 +4,8 @@ from torch.nn import init
 from typing import Callable, Optional, Sequence
 from DynapSEtorch.surrogate import fast_sigmoid, triangular, step
 
+import numpy as np
+
 from collections import namedtuple
 
 amp = 1
@@ -117,7 +119,7 @@ class ADM(nn.Module):
 
 
 class LIF(nn.Module):
-    LIFState = namedtuple("LIFState", ["V", "S"])
+    LIFState = namedtuple("LIFState", ["V", "I", "S"])
 
     def __init__(
         self,
@@ -125,6 +127,7 @@ class LIF(nn.Module):
         n_out: int,
         thr: float = 1.0,
         tau: float = 20.0,
+        tau_I: float = 10.0,
         dt: float = 1.0,
         activation_fn: torch.autograd.Function = fast_sigmoid,
     ):
@@ -137,9 +140,12 @@ class LIF(nn.Module):
         self.activation_fn = activation_fn
         self.base_layer = nn.Linear(n_in, n_out, bias=False)
 
-        distribution = torch.distributions.gamma.Gamma(3, 3 / tau)
-        tau = distribution.rsample((1, n_out)).clamp(3, 100)
-        self.register_buffer("alpha", torch.exp(-dt / tau).float())
+        # distribution = torch.distributions.gamma.Gamma(3, 3 / tau)
+        # tau = distribution.rsample((1, n_out)).clamp(3, 100)
+        # self.register_buffer("alpha", torch.exp(-dt / tau).float())
+
+        self.register_buffer("alpha", torch.tensor(np.exp(-dt / tau)).float())
+        self.register_buffer("beta", torch.tensor(np.exp(-dt / tau_I)).float())
         self.register_buffer("thr", torch.tensor(thr).float())
 
         self.reset()
@@ -150,6 +156,7 @@ class LIF(nn.Module):
     def init_state(self, input):
         self.state = self.LIFState(
             V=torch.zeros(input.shape[0], self.n_out, device=input.device),
+            I=torch.zeros(input.shape[0], self.n_out, device=input.device),
             S=torch.zeros(input.shape[0], self.n_out, device=input.device),
         )
         return self.state
@@ -159,14 +166,14 @@ class LIF(nn.Module):
             self.init_state(input)
 
         V = self.state.V
+        I = self.state.I
         S = self.state.S
 
-        V = (self.alpha * V + (1 - self.alpha) * self.base_layer(input)) * (
-            1 - S.detach()
-        )
+        I = self.beta * I + (1 - self.beta) * self.base_layer(input)
+        V = (self.alpha * V + (1 - self.alpha) * I) * (1 - S.detach())
         S = self.activation_fn(V - self.thr)
 
-        self.state = self.LIFState(V=V, S=S)
+        self.state = self.LIFState(V=V, I=I, S=S)
 
         return S
 
