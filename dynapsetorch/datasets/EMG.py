@@ -97,7 +97,12 @@ class RoshamboDataset(Dataset):
                                 stop = 40
 
                             emg = emg_singlerep[start:stop]
-                            if start < 399 and len(emg) == window:
+                            if (
+                                (start < 399)
+                                and (len(emg) == window)
+                                and (labels[i] != b"none")
+                                and (labels[i] != "none")
+                            ):
                                 X.append(emg)
                                 y.append(labels[i])
                         k_old = k_new + 1
