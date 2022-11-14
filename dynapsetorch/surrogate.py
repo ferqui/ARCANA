@@ -130,3 +130,39 @@ class Triangular(torch.autograd.Function):
 
 
 triangular = Triangular.apply
+
+
+class STE(torch.autograd.Function):
+    """
+    Straight Through Estimator
+    """
+
+    @staticmethod
+    def pseudo_derivative(v):
+        """Compute the STE surrogate gradient.
+
+        Args:
+            V(float): Neuron voltage to which threshold is applied to.
+
+        Returns:
+            float: The surrogate STE gradient of V.
+
+        """
+        return torch.ones_like(v)
+
+    @staticmethod
+    def forward(ctx, V):
+        """"""
+        ctx.save_for_backward(V)
+        return (V >= 0).type(V.dtype)
+
+    @staticmethod
+    def backward(ctx, dy):
+        """"""
+        (V,) = ctx.saved_tensors
+
+        dE_dz = dy
+        dz_dv_scaled = STE.pseudo_derivative(V)
+        dE_dv_scaled = dE_dz * dz_dv_scaled
+
+        return dE_dv_scaled
