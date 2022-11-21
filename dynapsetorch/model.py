@@ -36,6 +36,8 @@ kappa_p = 0.66  # Subthreshold slope factor (p-type transistor)
 Ut = 25.0 * mV  # Thermal voltage
 I0 = 1 * pA  # Dark current
 
+relu = nn.ReLU()
+
 
 class ADM(nn.Module):
     """Adaptive Delta Modulation (ADM) module
@@ -56,10 +58,11 @@ class ADM(nn.Module):
         self.refractory = nn.Parameter(
             torch.tensor(refractory).float(), requires_grad=True
         )
-        self.threshold_up = nn.Parameter(torch.tensor(threshold_up), requires_grad=True)
-        self.threshold_down = nn.Parameter(
-            torch.tensor(threshold_down), requires_grad=True
-        )
+        self.threshold = nn.Parameter(torch.tensor(threshold_up), requires_grad=True)
+        # self.threshold_up = nn.Parameter(torch.tensor(threshold_up), requires_grad=True)
+        # self.threshold_down = nn.Parameter(
+        #     torch.tensor(threshold_down), requires_grad=True
+        # )
         self.N = N
 
         self.reset()
@@ -82,8 +85,8 @@ class ADM(nn.Module):
 
             reconstructed[:, t] = (
                 reconstructed[:, t - 1]
-                + self.threshold_up * spikes_p
-                - self.threshold_down * spikes_n
+                + self.threshold * spikes_p
+                - self.threshold * spikes_n
             )
 
         return reconstructed
@@ -98,22 +101,28 @@ class ADM(nn.Module):
             self.refrac = torch.zeros_like(input_signal)
             self.DC_Voltage = input_signal
         else:
+            output_p = (
+                self.activation_fn(
+                    (input_signal - (self.DC_Voltage.detach() + self.threshold))
+                )
+                * (self.refrac == 0).float()
+            )
+            self.refrac = output_p * self.refractory + (1 - output_p) * self.refrac
 
-            self.refrac[self.refrac > 0] -= 1
+            output_n = (
+                self.activation_fn(
+                    ((self.DC_Voltage.detach() - self.threshold) - input_signal)
+                )
+                * (self.refrac == 0).float()
+            )
+            self.refrac = output_n * self.refractory + (1 - output_n) * self.refrac
 
-            output_p = self.activation_fn(
-                input_signal - (self.DC_Voltage + self.threshold_up)
-            ) * (self.refrac == 0)
-            self.refrac[output_p.bool()] = self.refractory
-            self.DC_Voltage += output_p * self.threshold_up
+            change_v = (self.refrac == 1).float()
+            self.DC_Voltage = change_v * input_signal + (1 - change_v) * self.DC_Voltage
 
-            output_n = self.activation_fn(
-                (self.DC_Voltage - self.threshold_down) - input_signal
-            ) * (self.refrac == 0)
-            self.refrac[output_n.bool()] = self.refractory
-            self.DC_Voltage -= output_n * self.threshold_down
+            output = torch.cat([output_p, output_n], dim=1)
 
-            output = torch.cat([output_p.float(), output_n.float()], dim=1)
+            self.refrac = relu(self.refrac - 1)
 
         return output, output_p, output_n
 

@@ -166,3 +166,6 @@ class STE(torch.autograd.Function):
         dE_dv_scaled = dE_dz * dz_dv_scaled
 
         return dE_dv_scaled
+
+
+ste = STE.apply
