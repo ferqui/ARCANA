@@ -92,6 +92,7 @@ class DelayChainLIF(nn.Module):
 
     def forward(self, input):
         in_spikes, _, _ = self.adm_encoder(input)
+        adm_spikes = in_spikes
         out_spikes = []
         for pool in self.pool_layer:
             if pool.state is None:
@@ -105,7 +106,7 @@ class DelayChainLIF(nn.Module):
         ro_spikes = self.readout(
             pool_spikes.view(-1, self.n_pool * self.n_channels * 2)
         )
-        return ro_spikes, pool_spikes
+        return ro_spikes, pool_spikes, adm_spikes
 
 
 class EIBalancedNetwork(nn.Module):
