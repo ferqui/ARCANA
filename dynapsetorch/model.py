@@ -127,6 +127,16 @@ class ADM(nn.Module):
         return output, output_p, output_n
 
 
+class Rate(nn.Module):
+    def __init__(self, dt=1.0):
+        super(Rate, self).__init__()
+        self.dt = dt
+
+    def forward(self, rate):
+        spike = torch.rand_like(rate) < rate * self.dt
+        return spike.float()
+
+
 class LIF(nn.Module):
     LIFState = namedtuple("LIFState", ["V", "I", "S"])
 
@@ -411,7 +421,7 @@ class AdexLIF(nn.Module):
         Igaba_a = self.state.Igaba_a
         Igaba_b = self.state.Igaba_b
 
-        Isoma_mem_clip = torch.clip(Isoma_mem.clone(), self.I0, 1)
+        Isoma_mem_clip = torch.clip(Isoma_mem.clone(), I0, 1)
 
         kappa = (self.kn + self.kp) / 2
 
@@ -419,26 +429,24 @@ class AdexLIF(nn.Module):
         Inmda_dp = Inmda.clone() / (
             1 + self.Inmda_thr / Isoma_mem_clip
         )  # Voltage gating differential pair block
-        Iin_clip = torch.clip(Inmda_dp + Iampa - Igaba_b + self.Isoma_const, self.I0, 1)
+        Iin_clip = torch.clip(Inmda_dp + Iampa - Igaba_b + self.Isoma_const, I0, 1)
 
         ##### SOMA CALCULATION #####
         ## Isoma_sum components calculation
-        low_current_mem = self.I0 * (Isoma_mem.detach() <= self.I0)
+        low_current_mem = I0 * (Isoma_mem.detach() <= I0)
         Isoma_pfb = self.Isoma_pfb_gain / (
             1 + torch.exp(-(Isoma_mem - self.Isoma_pfb_th) / self.Isoma_pfb_norm)
         )
-        Isoma_pfb_shunt = Isoma_pfb * (Isoma_mem.detach() > self.I0) + low_current_mem
+        Isoma_pfb_shunt = Isoma_pfb * (Isoma_mem.detach() > I0) + low_current_mem
         Isoma_ahp_shunt = (
-            Isoma_ahp.clone() * (Isoma_mem.detach() > self.I0) + low_current_mem
+            Isoma_ahp.clone() * (Isoma_mem.detach() > I0) + low_current_mem
         )
-        Igaba_a_shunt = (
-            Igaba_a.clone() * (Isoma_mem.detach() > self.I0) + low_current_mem
-        )
+        Igaba_a_shunt = Igaba_a.clone() * (Isoma_mem.detach() > I0) + low_current_mem
         Isoma_dpi_tau_shunt = (
-            self.Isoma_dpi_tau * (Isoma_mem.detach() > self.I0) + low_current_mem
+            self.Isoma_dpi_tau * (Isoma_mem.detach() > I0) + low_current_mem
         )
         Isoma_dpi_g_shunt = (
-            self.alpha_soma * Isoma_dpi_tau_shunt * (Isoma_mem.detach() > self.I0)
+            self.alpha_soma * Isoma_dpi_tau_shunt * (Isoma_mem.detach() > I0)
             + low_current_mem
         )
 
@@ -452,12 +460,12 @@ class AdexLIF(nn.Module):
         )
 
         ## Adaptation current
-        low_current_ahp = self.I0 * (Isoma_ahp.detach() <= self.I0)
+        low_current_ahp = I0 * (Isoma_ahp.detach() <= I0)
         Isoma_ahp_tau_shunt = (
-            self.Isoma_ahp_tau * (Isoma_ahp.detach() > self.I0) + low_current_ahp
+            self.Isoma_ahp_tau * (Isoma_ahp.detach() > I0) + low_current_ahp
         )
         Isoma_ahp_g_shunt = (
-            self.alpha_ahp * Isoma_ahp_tau_shunt * (Isoma_ahp.detach() > self.I0)
+            self.alpha_ahp * Isoma_ahp_tau_shunt * (Isoma_ahp.detach() > I0)
             + low_current_ahp
         )
         tau_soma_ahp = (self.Csoma_ahp * self.Ut) / (kappa * Isoma_ahp_tau_shunt)
@@ -478,11 +486,11 @@ class AdexLIF(nn.Module):
         )
 
         ##### NMDA #####
-        low_current_nmda = self.I0 * (Inmda.detach() <= self.I0)
+        low_current_nmda = I0 * (Inmda.detach() <= I0)
         Inmda_g = self.alpha_nmda * self.Inmda_tau
-        Inmda_g_shunt = Inmda_g * (Inmda.detach() > self.I0) + low_current_nmda
+        Inmda_g_shunt = Inmda_g * (Inmda.detach() > I0) + low_current_nmda
 
-        Inmda_tau_shunt = self.Inmda_tau * (Inmda.detach() > self.I0) + low_current_nmda
+        Inmda_tau_shunt = self.Inmda_tau * (Inmda.detach() > I0) + low_current_nmda
         tau_nmda = self.Cnmda * self.Ut / (kappa * Inmda_tau_shunt)
 
         dInmda = (-Inmda - Inmda_g_shunt + 2 * low_current_nmda) / (
@@ -494,11 +502,11 @@ class AdexLIF(nn.Module):
             )
 
         #### AMPA ####
-        low_current_ampa = self.I0 * (Iampa.detach() <= self.I0)
+        low_current_ampa = I0 * (Iampa.detach() <= I0)
         Iampa_g = self.alpha_ampa * self.Iampa_tau
-        Iampa_g_shunt = Iampa_g * (Iampa.detach() > self.I0) + low_current_ampa
+        Iampa_g_shunt = Iampa_g * (Iampa.detach() > I0) + low_current_ampa
 
-        Iampa_tau_shunt = self.Iampa_tau * (Iampa.detach() > self.I0) + low_current_ampa
+        Iampa_tau_shunt = self.Iampa_tau * (Iampa.detach() > I0) + low_current_ampa
         tau_ampa = self.Campa * self.Ut / (kappa * Iampa_tau_shunt)
 
         dIampa = (-Iampa - Iampa_g_shunt + 2 * low_current_ampa) / (
@@ -510,12 +518,12 @@ class AdexLIF(nn.Module):
             )
 
         #### GABA B - inh ####
-        low_current_gaba_b = self.I0 * (Igaba_b.detach() <= self.I0)
+        low_current_gaba_b = I0 * (Igaba_b.detach() <= I0)
         Igaba_b_g = (
             self.alpha_gaba_b * self.Igaba_b_tau
         )  # GABA B synapse gain expressed in terms of its tau current
         Igaba_b_g_shunt = (
-            Igaba_b_g * (Igaba_b.detach() > self.I0) + low_current_gaba_b
+            Igaba_b_g * (Igaba_b.detach() > I0) + low_current_gaba_b
         )  # Shunt g current if Igaba_b goes to I0
 
         Igaba_b_tau_shunt = (
@@ -534,12 +542,12 @@ class AdexLIF(nn.Module):
             )
 
         #### # GABA A - shunt ####
-        low_current_gaba_a = self.I0 * (Igaba_a.detach() <= self.I0)
+        low_current_gaba_a = I0 * (Igaba_a.detach() <= I0)
         Igaba_a_g = (
             self.alpha_gaba_a * self.Igaba_a_tau
         )  # GABA A synapse gain expressed in terms of its tau current
         Igaba_a_g_shunt = (
-            Igaba_a_g * (Igaba_a.detach() > self.I0) + low_current_gaba_a
+            Igaba_a_g * (Igaba_a.detach() > I0) + low_current_gaba_a
         )  # Shunt g current if Igaba_a goes to I0
 
         Igaba_a_tau_shunt = (
