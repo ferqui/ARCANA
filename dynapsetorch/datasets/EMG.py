@@ -5,7 +5,7 @@ import numpy as np
 
 from tonic.dataset import Dataset
 from scipy import ndimage, signal
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 from sklearn import preprocessing
 from pathlib import Path
 
@@ -46,6 +46,7 @@ class RoshamboDataset(Dataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         upsample: Optional[int] = 5,
+        channels: Optional[Sequence[int]] = [0, 1, 2, 3, 4, 5, 6, 7],
     ):
         save_to = os.path.expanduser(save_to)
         super().__init__(
@@ -57,6 +58,7 @@ class RoshamboDataset(Dataset):
         base_url = "https://zenodo.org/record/3194792/files/Roshambo.zip?download=1"
 
         self.upsample = upsample
+        self.channels = channels
         self.transform = transform
         self.target_transform = target_transform
 
@@ -71,10 +73,16 @@ class RoshamboDataset(Dataset):
                 "*_ann.npy"
             )
 
-            fs = 200  # 200 Hz sampling rate
-            window = int(0.2 * fs)  # Time window of 200 ms
+            offset = 75  # Delete first and last 75 samples
+            # fs = 200  # 200 Hz sampling rate
+            # window = int(0.2 * fs)  # Time window of 200 ms
             X = []
             y = []
+            # files = [
+            #     os.path.join(
+            #         self.location_on_system, "Roshambo/subject02_session01_ann.npy"
+            #     )
+            # ]
             for f in files:
                 filename = str(f)
                 labels = np.load(filename)
@@ -84,33 +92,38 @@ class RoshamboDataset(Dataset):
                 k_old = 0
                 k_new = 0
                 for i in range(0, len(labels) - 1):
-                    if labels[i] != labels[i + 1]:
+                    if labels[i] != labels[i + 1] or i == len(labels) - 2:
                         k_new = i
 
-                        emg_singlerep = data[k_old:k_new]
-                        n_iter = int(len(emg_singlerep) / window)
-                        for k in range(0, n_iter + 1):
-                            start = k * window - 1
-                            stop = (k + 1) * window - 1
-                            if k == 0:
-                                start = 0
-                                stop = 40
+                        emg_singlerep = data[(k_old + offset) : (k_new - offset)]
+                        # n_iter = int(len(emg_singlerep) / window)
+                        # for k in range(0, n_iter + 1):
+                        #     start = k * window - 1
+                        #     stop = (k + 1) * window - 1
+                        #     if k == 0:
+                        #         start = 0
+                        #         stop = 40
 
-                            emg = emg_singlerep[start:stop]
-                            if (
-                                (start < 399)
-                                and (len(emg) == window)
-                                and (labels[i] != b"none")
-                                and (labels[i] != "none")
-                            ):
-                                X.append(emg)
-                                y.append(labels[i])
+                        #     emg = emg_singlerep[start:stop]
+                        #     # if (
+                        #     #     (start < 399)
+                        #     #     and (len(emg) == window)
+                        #     #     # and (labels[i] != b"none")
+                        #     #     # and (labels[i] != "none")
+                        #     # ):
+                        #     if len(emg) == window:
+                        #         X.append(emg)
+                        #         y.append(str(labels[i]))
+                        if (labels[i] != b"none") and (labels[i] != "none"):
+                            X.append(emg_singlerep)
+                            y.append(labels[i])
+
                         k_old = k_new + 1
 
             y = np.array(y)
 
-            le = preprocessing.LabelEncoder()
-            y = le.fit_transform(y)
+            self.le = preprocessing.LabelEncoder()
+            y = self.le.fit_transform(y)
 
             self.data = {"X": X, "y": y}
             with open(
@@ -130,7 +143,7 @@ class RoshamboDataset(Dataset):
         return len(self.data["y"])
 
     def __getitem__(self, idx):
-        sensor = self.data["X"][idx]
+        sensor = self.data["X"][idx][:, self.channels]
         sensor = signal.resample(
             sensor, sensor.shape[0] * self.upsample
         )  # Convert from 200Hz to 1KHz
