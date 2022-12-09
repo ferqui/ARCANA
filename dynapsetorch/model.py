@@ -199,6 +199,171 @@ class LIF(nn.Module):
 
 class AdexLIF(nn.Module):
     AdexLIFState = namedtuple(
+        "AdexLIFState", ["Isoma_mem", "Iampa", "Igaba_b", "Isoma_ahp", "refractory"]
+    )
+
+    def __init__(
+        self,
+        n_in: int,
+        n_out: int,
+        tau_soma: float = 5.0,
+        tau_ampa: float = 20.0,
+        tau_gaba_b: float = 5.0,
+        tau_ahp: float = 2.0,
+        dt: float = 1e-3,
+        activation_fn: torch.autograd.Function = fast_sigmoid,
+    ):
+        super(AdexLIF, self).__init__()
+
+        self.dt = dt
+        self.n_in = n_in
+        self.n_out = n_out
+
+        self.activation_fn = activation_fn
+
+        self.I0 = 1e-3  # pA (scaled to mA)
+
+        kappa_n = 0.75  # Subthreshold slope factor (n-type transistor)
+        kappa_p = 0.66  # Subthreshold slope factor (p-type transistor)
+        self.kappa = (kappa_n + kappa_p) / 2
+        self.Ut = 25.0 * 1e-3  # Thermal voltage mV
+
+        self.C_ampa = 2 * 1e-3  # pF (scaled to mF)
+        self.C_gaba_b = 2 * 1e-3  # pF (scaled to mF)
+        self.C_soma = 2 * 1e-3  # pF (scaled to mF)
+        self.C_ahp = 4 * 1e-3  # pF (scaled to mF)
+
+        self.tau_gaba_b = (
+            self.C_gaba_b * self.Ut / (self.kappa * tau_gaba_b * self.I0)
+        )  # ms
+        self.tau_ampa = self.C_ampa * self.Ut / (self.kappa * tau_ampa * self.I0)  # ms
+        self.tau_soma = self.C_soma * self.Ut / (self.kappa * tau_soma * self.I0)  # ms
+        self.tau_ahp = self.C_ahp * self.Ut / (self.kappa * tau_ahp * self.I0)  # ms
+
+        self.Isoma_dpi_tau = 5 * self.I0  # Leakage current
+        self.soma_refP = 5 * 1e-3 / dt  # Refractory period (2 ms)
+
+        # Reset and rest currents
+        self.Isoma_reset = 1.2 * self.I0
+        self.Vr = self.Isoma_dpi_tau + self.I0  # Isoma_dpi_tau + Igaba_a rest current
+
+        # AdexLIF threshold
+        self.Isoma_th = 2000 * self.I0
+        self.Isoma_pfb_th = 1000 * self.I0
+
+        #  SCALING FACTORS  #########################################################################################
+        self.alpha_soma = 4  # Scaling factor equal to Ig/Itau
+        self.alpha_gaba_b = 4  # Scaling factor equal to Ig/Itau
+        self.alpha_ahp = 4  # Scaling factor equal to Ig/Itau
+        self.alpha_ampa = 4  # Scaling factor equal to Ig/Itau
+
+        # Ampa current
+        self.ampa_gain = (
+            self.alpha_ampa * 100 * self.I0
+        )  # Scaling factor equal to Ig/Itau
+        # Times the base synaptic weight current which can be scaled by the .weight parameter
+
+        # GABA B
+        self.gaba_b_gain = self.alpha_gaba_b * 100 * self.I0
+
+        # AHP current
+        self.ahp_gain = (
+            self.alpha_ahp * 2 * self.I0
+        )  # Scaling factor equal to Ig/Itau times Leakage current for spike-frequency adaptation
+        self.ahp_jump = (
+            1 * self.I0 * self.alpha_ahp
+        )  # AHP jump height, on post times scaling factor equal to Ig/Itau
+
+        # Positive feedback current
+        self.Isoma_pfb_norm = 20 * self.I0  # Positive feedback normalization current
+        self.Isoma_pfb_gain = 100 * self.I0  # Positive feedback gain
+
+        self.weight_ampa = nn.Parameter(torch.ones(n_in, n_out) * 3)
+        self.weight_gaba_b = nn.Parameter(torch.ones(n_in, n_out) * 1)
+
+        self.reset()
+
+    def reset(self):
+        self.state = None
+
+    def init_state(self, input):
+        self.state = AdexLIF.AdexLIFState(
+            Isoma_mem=torch.zeros(input.shape[0], self.n_out).to(input.device)
+            + 1.1 * self.I0,
+            Iampa=torch.zeros(input.shape[0], self.n_out).to(input.device) + self.I0,
+            Igaba_b=torch.zeros(input.shape[0], self.n_out).to(input.device) + self.I0,
+            Isoma_ahp=torch.zeros(input.shape[0], self.n_out).to(input.device),
+            refractory=torch.zeros(input.shape[0], self.n_out).to(input.device),
+        )
+        return self.state
+
+    def forward(self, input):
+        if self.state is None:
+            self.init_state(input)
+
+        Isoma_mem = self.state.Isoma_mem
+        Iampa = self.state.Iampa
+        Igaba_b = self.state.Igaba_b
+        Isoma_ahp = self.state.Isoma_ahp
+        refractory = self.state.refractory
+
+        # Positive feedback current
+        Isoma_pfb = self.Isoma_pfb_gain / (
+            1 + torch.exp(-(Isoma_mem - self.Isoma_pfb_th) / self.Isoma_pfb_norm)
+        )
+
+        # Detached Positive feedback and adaptation
+        Isoma_pfb = Isoma_pfb.detach()
+        Isoma_ahp = Isoma_ahp.detach()
+
+        dAHP = (-self.ahp_gain - Isoma_ahp) / (
+            self.tau_ahp * (1 + (self.ahp_gain / Isoma_ahp))
+        )  # Adaptation current
+
+        Iin = torch.clamp_min(Iampa - Igaba_b + self.I0, self.I0)
+        Isoma_sum = self.Vr + Isoma_ahp - Isoma_pfb
+
+        dIsoma_mem = (
+            self.alpha_soma * (Iin - Isoma_sum)
+            - Isoma_sum * Isoma_mem / self.Isoma_dpi_tau
+        ) / (
+            self.tau_soma
+            * (1 + (self.alpha_soma * self.Isoma_dpi_tau / Isoma_mem.detach()))
+        )
+
+        dIampa = (self.I0 - Iampa) / self.tau_ampa
+        Iampa += self.ampa_gain * input @ self.weight_ampa
+
+        dIgaba_b = (self.I0 - Igaba_b) / self.tau_gaba_b
+        Igaba_b += self.gaba_b_gain * input @ self.weight_gaba_b
+
+        refractory = refractory - (refractory > 0).float()
+        Isoma_mem += self.dt * dIsoma_mem * (refractory <= 0)
+        Isoma_ahp += self.dt * dAHP
+        Iampa += self.dt * dIampa
+        Igaba_b += self.dt * dIgaba_b
+
+        ## Fire
+        S = fast_sigmoid(Isoma_mem - self.Isoma_th)
+        refractory = refractory + (S * self.soma_refP).long()
+
+        Isoma_ahp += self.ahp_jump * S
+        Isoma_mem = self.Isoma_reset * S + Isoma_mem * (1 - S)
+        Isoma_mem = torch.clamp_min(Isoma_mem, self.I0)
+
+        self.state = AdexLIF.AdexLIFState(
+            Isoma_mem=Isoma_mem,
+            Iampa=Iampa,
+            Igaba_b=Igaba_b,
+            Isoma_ahp=Isoma_ahp,
+            refractory=refractory,
+        )
+
+        return S
+
+
+class AdexLIFfull(nn.Module):
+    AdexLIFState = namedtuple(
         "AdexLIFState",
         [
             "Isoma_mem",
@@ -217,7 +382,7 @@ class AdexLIF(nn.Module):
         input_per_synapse: Sequence[int] = [1, 1, 1, 1],
         activation_fn: torch.autograd.Function = fast_sigmoid,
     ):
-        super(AdexLIF, self).__init__()
+        super(AdexLIFfull, self).__init__()
 
         self.num_neurons = num_neurons
         self.activation_fn = activation_fn
