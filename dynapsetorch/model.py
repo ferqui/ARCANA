@@ -297,9 +297,9 @@ class AdexLIF(nn.Module):
         )
         return self.state
 
-    def forward(self, input):
+    def forward(self, input_ampa, input_gaba_b):
         if self.state is None:
-            self.init_state(input)
+            self.init_state(input_ampa)
 
         Isoma_mem = self.state.Isoma_mem
         Iampa = self.state.Iampa
@@ -332,10 +332,10 @@ class AdexLIF(nn.Module):
         )
 
         dIampa = (self.I0 - Iampa) / self.tau_ampa
-        Iampa += self.ampa_gain * input @ self.weight_ampa
+        Iampa += self.ampa_gain * input_ampa @ self.weight_ampa
 
         dIgaba_b = (self.I0 - Igaba_b) / self.tau_gaba_b
-        Igaba_b += self.gaba_b_gain * input @ self.weight_gaba_b
+        Igaba_b += self.gaba_b_gain * input_gaba_b @ self.weight_gaba_b
 
         refractory = refractory - (refractory > 0).float()
         Isoma_mem += self.dt * dIsoma_mem * (refractory <= 0)
