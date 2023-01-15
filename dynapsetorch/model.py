@@ -39,6 +39,21 @@ I0 = 1 * pA  # Dark current
 relu = nn.ReLU()
 
 
+class Round(torch.autograd.function.InplaceFunction):
+    @staticmethod
+    def forward(ctx, input):
+        ctx.input = input
+        return torch.round(input)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        grad_input = grad_output.clone()
+        return grad_input
+
+
+round = Round.apply
+
+
 class ADM(nn.Module):
     """Adaptive Delta Modulation (ADM) module
     Converts an analog signal into UP and DOWN spikes using the Adaptive Delta Modulation scheme.
@@ -221,10 +236,8 @@ class AdexLIF(nn.Module):
 
         self.activation_fn = activation_fn
 
-        self.I0 = 1e-3  # pA (scaled to mA)
+        self.I0 = 1e-3  # pA (scaled to mA for numerical stability)
 
-        kappa_n = 0.75  # Subthreshold slope factor (n-type transistor)
-        kappa_p = 0.66  # Subthreshold slope factor (p-type transistor)
         self.kappa = (kappa_n + kappa_p) / 2
         self.Ut = 25.0 * 1e-3  # Thermal voltage mV
 
@@ -278,8 +291,8 @@ class AdexLIF(nn.Module):
         self.Isoma_pfb_norm = 20 * self.I0  # Positive feedback normalization current
         self.Isoma_pfb_gain = 100 * self.I0  # Positive feedback gain
 
-        self.weight_ampa = nn.Parameter(torch.ones(n_in, n_out) * 3)
-        self.weight_gaba_b = nn.Parameter(torch.ones(n_in, n_out) * 1)
+        self.weight_ampa = nn.Parameter(torch.rand(n_in, n_out), requires_grad=True)
+        self.weight_gaba_b = nn.Parameter(torch.rand(n_in, n_out), requires_grad=True)
 
         self.reset()
 
@@ -332,10 +345,10 @@ class AdexLIF(nn.Module):
         )
 
         dIampa = (self.I0 - Iampa) / self.tau_ampa
-        Iampa += self.ampa_gain * input_ampa @ self.weight_ampa
+        Iampa += self.ampa_gain * input_ampa @ round(self.weight_ampa)
 
         dIgaba_b = (self.I0 - Igaba_b) / self.tau_gaba_b
-        Igaba_b += self.gaba_b_gain * input_gaba_b @ self.weight_gaba_b
+        Igaba_b += self.gaba_b_gain * input_gaba_b @ round(self.weight_gaba_b)
 
         refractory = refractory - (refractory > 0).float()
         Isoma_mem += self.dt * dIsoma_mem * (refractory <= 0)
@@ -422,10 +435,7 @@ class AdexLIFfull(nn.Module):
         self.Isoma_mem_init = 1.1 * I0
         self.register_buffer("Csoma_mem", torch.tensor(2 * pF))  # Membrane capacitance
         self.register_buffer("Isoma_dpi_tau", torch.tensor(5 * I0))  # Leakage current
-        # self.register_buffer('Isoma_th', torch.tensor(2000 * I0))        # Spiking threshold
-        self.Isoma_th = torch.nn.Parameter(
-            torch.ones(1) * 2000 * I0, requires_grad=False
-        )
+        self.register_buffer("Isoma_th", torch.tensor(2000 * I0))  # Spiking threshold
         self.register_buffer("Isoma_reset", torch.tensor(1.2 * I0))  # Reset current
         self.register_buffer(
             "Isoma_const", torch.tensor(I0)
@@ -507,16 +517,16 @@ class AdexLIFfull(nn.Module):
         # ##################
 
         self.weight_nmda = torch.nn.Parameter(
-            torch.ones(input_per_synapse[0], num_neurons), requires_grad=True
+            torch.rand(input_per_synapse[0], num_neurons), requires_grad=False
         )
         self.weight_ampa = torch.nn.Parameter(
-            torch.ones(input_per_synapse[1], num_neurons), requires_grad=True
+            torch.rand(input_per_synapse[1], num_neurons), requires_grad=False
         )
         self.weight_gaba_a = torch.nn.Parameter(
-            torch.ones(input_per_synapse[2], num_neurons), requires_grad=True
+            torch.rand(input_per_synapse[2], num_neurons), requires_grad=False
         )
         self.weight_gaba_b = torch.nn.Parameter(
-            torch.ones(input_per_synapse[3], num_neurons), requires_grad=True
+            torch.rand(input_per_synapse[3], num_neurons), requires_grad=False
         )
 
         self.dt = 1 * ms
@@ -663,7 +673,7 @@ class AdexLIFfull(nn.Module):
         )
         if input_nmda is not None:
             Inmda = Inmda + self.Inmda_w0 * self.alpha_nmda * (
-                input_nmda @ self.weight_nmda
+                input_nmda @ round(self.weight_nmda)
             )
 
         #### AMPA ####
@@ -679,7 +689,7 @@ class AdexLIFfull(nn.Module):
         )
         if input_ampa is not None:
             Iampa = Iampa + self.Iampa_w0 * self.alpha_ampa * (
-                input_ampa @ self.weight_ampa
+                input_ampa @ round(self.weight_ampa)
             )
 
         #### GABA B - inh ####
@@ -703,7 +713,7 @@ class AdexLIFfull(nn.Module):
         )
         if input_gaba_b is not None:
             Igaba_b = Igaba_b + self.Igaba_b_w0 * self.alpha_gaba_b * (
-                input_gaba_b @ self.weight_gaba_b
+                input_gaba_b @ round(self.weight_gaba_b)
             )
 
         #### # GABA A - shunt ####
@@ -727,7 +737,7 @@ class AdexLIFfull(nn.Module):
         )
         if input_gaba_a is not None:
             Igaba_a = Igaba_a + self.Igaba_a_w0 * self.alpha_gaba_a * (
-                input_gaba_a @ self.weight_gaba_a
+                input_gaba_a @ round(self.weight_gaba_a)
             )
 
         ## Gradient updates

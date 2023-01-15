@@ -1,3 +1,7 @@
+.vscode
+experiments
+runs
+
 # Brian2
 output
 dynapse-simulator
