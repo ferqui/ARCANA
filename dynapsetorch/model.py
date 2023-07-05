@@ -94,6 +94,7 @@ class DPINeuron(nn.Module):
         self.Itau_ampa = Itau_ampa
         self.Igain_ampa = Igain_ampa
         self.Iw_ampa = nn.Parameter(torch.tensor(Iw_ampa), train_ampa)
+        self.Iw_ampa.register_hook(lambda grad: grad*1e-12)
         self.W_ampa = nn.Parameter(torch.empty(n_out, n_in), train_ampa)
         self.tau_ampa = (
             (self.Ut / self.kappa) * self.Campa
@@ -105,6 +106,7 @@ class DPINeuron(nn.Module):
         self.Itau_shunt = Itau_ampa
         self.Igain_shunt = Igain_ampa
         self.Iw_shunt = nn.Parameter(torch.tensor(Iw_ampa), train_ampa)
+        self.Iw_shunt.register_hook(lambda grad: grad*1e-12)
         self.W_shunt = nn.Parameter(torch.empty(n_out, n_in), train_ampa)
         self.tau_shunt = (
             (self.Ut / self.kappa) * self.Cshunt
@@ -144,12 +146,16 @@ class DPINeuron(nn.Module):
         self.Itau_mem = self.I0 / (self.beta - 1)
         self.Igain_mem = self.alpha * self.Itau_mem
         self.tau_mem = (self.Ut / self.kappa) * self.Cmem / self.Itau_mem
+        
+        self.Iw_ampa.data = torch.clamp_min(self.Iw_ampa.data, self.I0)
+        self.Iw_shunt.data = torch.clamp_min(self.Iw_shunt.data, self.I0)
+
         self.W_ampa.data = torch.clamp_min(self.W_ampa.data, 0.0)
         self.W_shunt.data = torch.clamp_min(self.W_shunt.data, 0.0)
 
-        fanin = round(self.W_ampa).sum(dim=1) + round(self.W_shunt).sum(dim=1)
-        self.W_ampa.data = torch.clamp_max(fanin.repeat(self.n_in,1).T, self.MAX_FANIN)*self.W_ampa.data/fanin.repeat(self.n_in,1).T
-        self.W_shunt.data = torch.clamp_max(fanin.repeat(self.n_in,1).T, self.MAX_FANIN)*self.W_shunt.data/fanin.repeat(self.n_in,1).T
+        # fanin = self.W_ampa.sum(dim=1) + self.W_shunt.sum(dim=1)
+        # self.W_ampa.data = torch.clamp_max(fanin.repeat(self.n_in,1).T, self.MAX_FANIN)*self.W_ampa.data/fanin.repeat(self.n_in,1).T
+        # self.W_shunt.data = torch.clamp_max(fanin.repeat(self.n_in,1).T, self.MAX_FANIN)*self.W_shunt.data/fanin.repeat(self.n_in,1).T
 
     def forward(self, X, state=None):
         if state is None:
@@ -162,8 +168,8 @@ class DPINeuron(nn.Module):
         numSynAmpa = torch.nn.functional.linear(X, round(self.W_ampa))
         numSynShunt = torch.nn.functional.linear(X, round(self.W_shunt))
         if self.training and self.train_ampa:
-            numSynAmpa.register_hook(lambda grad: grad*1e10)
-            numSynShunt.register_hook(lambda grad: grad*1e10)
+            numSynAmpa.register_hook(lambda grad: grad*1e12)
+            numSynShunt.register_hook(lambda grad: grad*1e12)
 
 
         dIampa = -Iampa / self.tau_ampa
