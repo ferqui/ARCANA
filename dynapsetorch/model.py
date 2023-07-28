@@ -58,7 +58,7 @@ class DPINeuron(nn.Module):
 
         ## Constants
         self.dt = dt
-        self.I0 = 5e-13  # Dark current
+        self.I0 = 0.5e-13  # Dark current
         self.Ut = 25e-3  # Thermal voltage
         self.kappa = (0.75 + 0.66) / 2  # Transistor slope factor
         self.Cmem = 3e-12  # Membrane capacitance
@@ -93,9 +93,9 @@ class DPINeuron(nn.Module):
         self.train_ampa = train_ampa
         self.Itau_ampa = Itau_ampa
         self.Igain_ampa = Igain_ampa
-        self.Iw_ampa = nn.Parameter(torch.tensor(Iw_ampa), train_ampa)
+        self.Iw_ampa = nn.Parameter(torch.tensor(Iw_ampa), requires_grad=train_ampa)
         self.Iw_ampa.register_hook(lambda grad: grad*1e-12)
-        self.W_ampa = nn.Parameter(torch.empty(n_out, n_in), train_ampa)
+        self.W_ampa = nn.Parameter(torch.empty(n_out, n_in), requires_grad=train_ampa)
         self.tau_ampa = (
             (self.Ut / self.kappa) * self.Campa
         ) / Itau_ampa  # AMPA time constant
@@ -105,9 +105,9 @@ class DPINeuron(nn.Module):
         self.train_ampa = train_ampa
         self.Itau_shunt = Itau_ampa
         self.Igain_shunt = Igain_ampa
-        self.Iw_shunt = nn.Parameter(torch.tensor(Iw_ampa), train_ampa)
+        self.Iw_shunt = nn.Parameter(torch.tensor(Iw_ampa), requires_grad=train_ampa)
         self.Iw_shunt.register_hook(lambda grad: grad*1e-12)
-        self.W_shunt = nn.Parameter(torch.empty(n_out, n_in), train_ampa)
+        self.W_shunt = nn.Parameter(torch.empty(n_out, n_in), requires_grad=train_ampa)
         self.tau_shunt = (
             (self.Ut / self.kappa) * self.Cshunt
         ) / Itau_ampa  # AMPA time constant 
@@ -168,8 +168,8 @@ class DPINeuron(nn.Module):
         numSynAmpa = torch.nn.functional.linear(X, round(self.W_ampa))
         numSynShunt = torch.nn.functional.linear(X, round(self.W_shunt))
         if self.training and self.train_ampa:
-            numSynAmpa.register_hook(lambda grad: grad*1e12)
-            numSynShunt.register_hook(lambda grad: grad*1e12)
+            numSynAmpa.register_hook(lambda grad: grad*1e10)
+            numSynShunt.register_hook(lambda grad: grad*1e10)
 
 
         dIampa = -Iampa / self.tau_ampa
@@ -210,8 +210,8 @@ class DPINeuron(nn.Module):
         Iampa = Iampa + dIampa * self.dt
         Iampa = torch.clamp_min(Iampa, self.I0)
 
-        Iampa = Iampa + dIshunt * self.dt
-        Iampa = torch.clamp_min(Iampa, self.I0)
+        Ishunt = Ishunt + dIshunt * self.dt
+        Ishunt = torch.clamp_min(Ishunt, self.I0)
 
         ########### SPIKE ###########
         spike = self.surrogate_fn(Imem - self.Ith)
