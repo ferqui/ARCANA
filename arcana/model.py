@@ -41,12 +41,17 @@ class DPINeuron(nn.Module):
         Itau_ampa: float = 1e-12,
         Igain_ampa: float = 1e-12,
         Iw_ampa: float = 1e-12,
+        ## GABAa parameters
+        Itau_shunt: float = 1e-12,
+        Igain_shunt: float = 1e-12,
+        Iw_shunt: float = 1e-12,
         dt: float = 1e-3,
         surrogate_fn: Callable = fast_sigmoid,
         train_Itau_mem=False,
         train_Igain_mem=False,
         train_Idc=False,
         train_ampa=True,
+        train_shunt=True,
         **kwargs
     ):
         super(DPINeuron, self).__init__(**kwargs)
@@ -73,11 +78,13 @@ class DPINeuron(nn.Module):
         ) / Itau_mem  # Soma time constant
 
         # Alpha and beta are trainable parameters that depends on leakage and gain current
+        self.train_Igain_mem = train_Igain_mem
         self.alpha = nn.Parameter(
             torch.tensor(Igain_mem / Itau_mem), requires_grad=train_Igain_mem
         )
+        self.train_Itau_mem = train_Itau_mem
         self.beta = nn.Parameter(
-            torch.tensor(1 + self.I0 / Itau_mem), requires_grad=train_Itau_mem
+            torch.tensor(self.I0 / Itau_mem), requires_grad=train_Itau_mem
         )
 
         ## Positive feedback current
@@ -88,29 +95,33 @@ class DPINeuron(nn.Module):
         self.refP = refP
         self.Ith = Ith  # Firing threshold
         self.Idc = nn.Parameter(torch.tensor(Idc), requires_grad=train_Idc)  # Input DC
+        self.train_Idc = train_Idc
+        if train_Idc:
+            self.Idc.register_hook(lambda grad: grad*1e-12)
 
         ## AMPA
         self.train_ampa = train_ampa
         self.Itau_ampa = Itau_ampa
         self.Igain_ampa = Igain_ampa
         self.Iw_ampa = nn.Parameter(torch.tensor(Iw_ampa), requires_grad=train_ampa)
-        self.Iw_ampa.register_hook(lambda grad: grad*1e-12)
+        if train_ampa:
+            self.Iw_ampa.register_hook(lambda grad: grad*1e-12)
         self.W_ampa = nn.Parameter(torch.empty(n_out, n_in), requires_grad=train_ampa)
         self.tau_ampa = (
             (self.Ut / self.kappa) * self.Campa
         ) / Itau_ampa  # AMPA time constant
 
         ## SHUNT
-        # TODO: Change AMPA for shunt in parameters
-        self.train_ampa = train_ampa
-        self.Itau_shunt = Itau_ampa
-        self.Igain_shunt = Igain_ampa
-        self.Iw_shunt = nn.Parameter(torch.tensor(Iw_ampa), requires_grad=train_ampa)
-        self.Iw_shunt.register_hook(lambda grad: grad*1e-12)
-        self.W_shunt = nn.Parameter(torch.empty(n_out, n_in), requires_grad=train_ampa)
+        self.train_shunt = train_shunt
+        self.Itau_shunt = Itau_shunt
+        self.Igain_shunt = Igain_shunt
+        self.Iw_shunt = nn.Parameter(torch.tensor(Iw_shunt), requires_grad=train_shunt)
+        if train_shunt:
+            self.Iw_shunt.register_hook(lambda grad: grad*1e-12)
+        self.W_shunt = nn.Parameter(torch.empty(n_out, n_in), requires_grad=train_shunt)
         self.tau_shunt = (
             (self.Ut / self.kappa) * self.Cshunt
-        ) / Itau_ampa  # AMPA time constant 
+        ) / Itau_shunt  # AMPA time constant 
 
         ## Weights initialization
         nn.init.constant_(self.W_ampa, 1.0)
@@ -142,10 +153,30 @@ class DPINeuron(nn.Module):
         print(self.tau_mem)
         print("")
 
+    @torch.no_grad()
+    def setTau(self, tau):
+        # self.tau_mem.data = torch.tensor(tau, device=self.tau_mem.device)
+        self.tau_mem = tau
+        self.Itau_mem = (self.Ut / self.kappa) * self.Cmem / tau
+        # self.beta.data = torch.tensor(1 + self.I0 / self.Itau_mem)
+
+    @torch.no_grad()
+    def setItau(self, Itau):
+        self.Itau_mem = Itau
+        # self.tau_mem.data = torch.tensor((self.Ut / self.kappa) * self.Cmem / Itau, device=self.tau_mem.device)
+        self.tau_mem = (self.Ut / self.kappa) * self.Cmem / Itau
+        self.beta.data = torch.tensor(self.I0 / Itau, device=self.beta.device)
+
     def UpdateParams(self, optimizer, args, kwargs):
-        self.Itau_mem = self.I0 / (self.beta - 1)
+        self.Itau_mem =  self.I0 / (self.beta)
         self.Igain_mem = self.alpha * self.Itau_mem
         self.tau_mem = (self.Ut / self.kappa) * self.Cmem / self.Itau_mem
+
+        # self.Igain_mem = self.alpha * self.Itau_mem
+        # self.Igain_mem.data = self.Igain_mem.clamp_min(self.I0)
+        # self.alpha.data = self.Igain_mem / self.Itau_mem
+        
+        # self.tau_mem = (self.Ut / self.kappa) * self.Cmem / self.Itau_mem
         
         self.Iw_ampa.data = torch.clamp_min(self.Iw_ampa.data, self.I0)
         self.Iw_shunt.data = torch.clamp_min(self.Iw_shunt.data, self.I0)
@@ -164,11 +195,14 @@ class DPINeuron(nn.Module):
         (Imem, Iampa, Ishunt, refractory) = state
         Iahp = self.I0
         Inmda = self.I0
+        Igaba = self.I0
         ########### SYNAPSE ###########
         numSynAmpa = torch.nn.functional.linear(X, round(self.W_ampa))
         numSynShunt = torch.nn.functional.linear(X, round(self.W_shunt))
         if self.training and self.train_ampa:
             numSynAmpa.register_hook(lambda grad: grad*1e10)
+
+        if self.training and self.train_shunt:
             numSynShunt.register_hook(lambda grad: grad*1e10)
 
 
@@ -196,10 +230,17 @@ class DPINeuron(nn.Module):
         )
         f_imem = (Ifb / self.Itau_mem) * (Imem + self.Igain_mem)
 
+        # Imem_decay = self.beta * Imem
+        # if self.training and self.train_Itau_mem:
+        #     Imem_decay.register_hook(lambda grad: grad*1e12)
+
         ## Soma derivative
+        # Ileak = self.Itau_mem + Iahp + Igaba
+        # Imem_inf = (self.Igain_mem / self.Itau_mem) * (Iin - Ileak)
+        # dImem = (Imem/(self.tau_mem * (Imem + self.Igain_mem))) * (Imem_inf + f_imem - Imem * (1 + Iahp / self.Itau_mem))
         dImem = (
             self.alpha * (Iin - self.Itau_mem - Iahp)
-            - self.beta * Imem
+            - Imem - (Iahp/self.I0) * self.beta * Imem
             + f_imem.detach()
         ) / (self.tau_mem * (1 + self.Igain_mem / Imem))
 
@@ -231,31 +272,102 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
+    from tqdm import tqdm
+
+    import pandas as pd
+    df = pd.read_csv(f'231010/records/TEK{7:04d}.CSV', header=None)
+    dt = float(df[1][1])
+    data = df[4].to_numpy() - df[4].to_numpy()[-10:].mean()
+
+    neuronCalib = DPINeuron(
+        1,
+        1,
+        Itau_mem=4.1e-12,
+        Igain_mem=500e-12,
+        Ith=0.012,
+        Idc=0.0e-12,
+        refP=0.0,
+        Ipfb_th=500e-12,
+        Ipfb_norm=1.470e9,
+        Itau_ampa=8e-12,
+        Igain_ampa=6.5e-12,
+        Iw_ampa=50e-12,
+        Itau_shunt=4e-12,
+        Igain_shunt=10e-12,
+        Iw_shunt=400e-12,
+        dt=dt,
+        train_Igain_mem=False,
+        train_Itau_mem=False,
+        train_ampa=True,
+        train_shunt=True,
+    )
+    torch.nn.init.constant_(neuronCalib.W_shunt, 0.0)
+
+    totalImem = []
+    totalIampa = []
+    totalIshunt = []
+    totalVmem = []
+    with torch.no_grad():
+        neuronCalib.eval()
+        state = None
+        for t in range(2500):
+            if t == 500:
+                Sin = torch.ones(1,1)
+            else:
+                Sin = torch.zeros(1,1)
+            out, state = neuronCalib(Sin, state)
+            (Imem, Iampa, Ishunt, _) = state
+            totalImem.append(Imem.numpy()[0])
+            totalIampa.append(Iampa.numpy()[0])
+            totalIshunt.append(Ishunt.numpy()[0])
+            totalVmem.append(neuronCalib.I2V(Imem).numpy()[0])
+
+    plt.plot(np.array(totalImem))
+    # plt.plot(data)
+    plt.show()
+
+    # exit()
 
     def train(neuron, optimizer, epochs):
         loss_hist = []
-        for _ in range(epochs):
+        Itau_hist = []
+        Igain_hist = []
+        Vmem_hist = []
+        neuron.train()
+        pbar = tqdm(range(epochs))
+        for _ in pbar:
             outAcum = 0.0
             state = None
-            for t in range(1000):
+            totalVmem = []
+            for t in range(2000):
                 out, state = neuron(torch.zeros(1, 1), state)
+                (Imem, _, _, _) = state
                 outAcum += out
+                
+                totalVmem.append(neuron.I2V(Imem).detach().numpy().item())
+            totalVmem = np.stack(totalVmem)
 
-            loss = (outAcum.mean() - torch.tensor(5.0)) ** 2
+            loss = (outAcum.sum() - torch.tensor(5.0)) ** 2
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             loss_hist.append(loss.item())
-        return loss_hist
+            with torch.no_grad():
+                Vmem_hist.append(totalVmem)
+                Itau_hist.append(neuron.Itau_mem.numpy().item())
+                Igain_hist.append(neuron.Igain_mem.numpy().item())
+            pbar.set_postfix({'Loss': loss.item()})
+        return loss_hist, Vmem_hist, Itau_hist, Igain_hist
 
     @torch.no_grad()
     def test(neuron):
         state = None
         totalImem = []
         totalVmem = []
-        for t in range(1000):
+        neuron.eval()
+        for t in tqdm(range(2000)):
             out, state = neuron(torch.zeros(1, 1), state)
-            (Imem, Iampa, _) = state
+            (Imem, Iampa, _, _) = state
             totalImem.append(Imem.numpy().item())
             totalVmem.append(neuron.I2V(Imem).numpy().item())
         return totalImem, totalVmem
@@ -266,7 +378,7 @@ if __name__ == "__main__":
         Itau_mem=4e-12,
         Igain_mem=20e-12,
         Ith=0.012,
-        Idc=60e-12,
+        Idc=10e-12,
         refP=0.0,
         Ipfb_th=20e-12,
         Ipfb_norm=2e9,
@@ -274,10 +386,15 @@ if __name__ == "__main__":
         Igain_ampa=20e-12,
         Iw_ampa=4e-12,
         dt=1e-3,
+        train_Igain_mem=True,
+        train_Itau_mem=True,
+        train_Idc=False,
+        train_ampa=False,
+        train_shunt=False
     )
-    optimizer = torch.optim.Adam(neuron.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(neuron.parameters(), lr=5e-3)
     optimizer.register_step_post_hook(neuron.UpdateParams)
-    optimizer.register_step_post_hook(neuron.printParameters)
+    # optimizer.register_step_post_hook(neuron.printParameters)
     print(optimizer)
 
     sns.set_theme(style="whitegrid")
@@ -293,7 +410,7 @@ if __name__ == "__main__":
     sns.lineplot(ax=axs[0], x=np.arange(len(Vmem)), y=Vmem, label="Before optimization")
     
     epochs = 100
-    loss = train(neuron, optimizer, epochs)
+    (loss, _, Itau, Igain) = train(neuron, optimizer, epochs)
     Imem, Vmem = test(neuron)
 
     sns.lineplot(ax=axs[0], x=np.arange(len(Vmem)), y=Vmem, label="After optimization")
@@ -308,8 +425,19 @@ if __name__ == "__main__":
 
     fig.suptitle(r"\huge Neuron parameters optimization"
                  "\n"
-                 r"\normalsize Optimizing leakage and gain currents of the neuron in order to fire 5 spikes in 1 second with a DC input of 60$pA$")
+                 r"\normalsize Optimizing leakage and gain currents of the neuron in order to fire 5 spikes in 2 seconds with a DC input of 10$pA$")
 
     plt.subplots_adjust(top=0.85, hspace=0.5) 
-    plt.savefig('optimization.png', bbox_inches='tight', transparent=False, dpi=300)
-    # plt.show()
+    plt.savefig('/home/ferqui/Work/dynapse/Experiments2/freqAdap/optimization.pdf', bbox_inches='tight', transparent=True, dpi=300)
+
+    plt.figure(figsize=(5,3))
+    sns.lineplot(np.array(Igain)/np.array(Itau), label=r'$\frac{I_{th}}{I_{\tau}}$')
+    plt.xlabel('Epochs')
+    plt.savefig('/home/ferqui/Work/dynapse/Experiments2/freqAdap/alpha.pdf', bbox_inches='tight', transparent=True, dpi=300)
+
+    plt.figure(figsize=(5,3))
+    sns.lineplot(np.array(Itau)*1e12, label=r'$I_{\tau}$')
+    plt.ylabel(r'Current ($pA$)')
+    plt.xlabel('Epochs')
+    plt.savefig('/home/ferqui/Work/dynapse/Experiments2/freqAdap/Itau.pdf', bbox_inches='tight', transparent=True, dpi=300)
+    plt.show()
