@@ -18,7 +18,7 @@ pip install git+https://github.com/ferqui/DynapSEtorch.git
 ## Examples
 | Example | Colab link |
 |---------|------------|
-| DynapSEtorch comparison with Brian2 simulation. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/dynapse.ipynb) |
+| ARCANA comparison with Brian2 simulation. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/dynapse.ipynb) |
 | Learning using BPTT surrogated gradient on DynapSE neuron model. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/learning.ipynb) |
 | Mismatch on DynapSE neuron model. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/mismatch.ipynb) |
 | Reconstruction of a ADM codified signal. | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ferqui/DynapSEtorch/blob/master/docs/examples/reconstruction.ipynb) |
@@ -27,7 +27,7 @@ pip install git+https://github.com/ferqui/DynapSEtorch.git
 
 ## Contributing
 
-If you want to contribute to this package develop code, you can install it in edit mode:
+If you want to contribute to this package development code, you can install it in edit mode:
 
 ```
 git clone https://github.com/ferqui/DynapSEtorch.git
@@ -43,19 +43,22 @@ Additional contributions were made by ....
 
 ## Citation
 
-If you find DynapSEtorch useful in your work, please cite the following source:
+If you find ARCANA useful in your work, please cite the following source:
 
 LINK to reference
 
 ```
-  @article{fmquintana2022,
-          title   =  {},
-          author  =  {},
-          journal = {arXiv preprint arXiv:XXXX.YYYYY},
-          year    = {202X}
-  }
+@misc{quintana2024ARCANA,
+    title={A Realistic Simulation Framework for Analog/Digital Neuromorphic Architectures}, 
+    author={Fernando M. Quintana and Maryada and Pedro L. Galindo and Elisa Donati and Giacomo Indiveri and Fernando Perez-Peña},
+    year={2024},
+    eprint={2409.14918},
+    archivePrefix={arXiv},
+    primaryClass={cs.NE},
+    url={https://arxiv.org/abs/2409.14918}, 
+}
 ```
 
 ## License & Copyright
 
-DynapSEtorch source code is published under the terms of the GPL-3.0 license. DynapSEtorch's documentation is licensed under [Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](http://creativecommons.org/licenses/by-sa/4.0/?ref=chooser-v1>)
+ARCANA source code is published under the terms of the GPL-3.0 license. ARCANA's documentation is licensed under [Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](http://creativecommons.org/licenses/by-sa/4.0/?ref=chooser-v1>)
