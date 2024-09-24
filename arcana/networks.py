@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from typing import Optional, Callable, Sequence
-from dynapsetorch.model import LIF, AdexLIF, ADM
-from dynapsetorch.surrogate import fast_sigmoid
+from arcana.model import LIF, AdexLIF, ADM
+from arcana.surrogate import fast_sigmoid
 
 
 class DelayChain(nn.Module):

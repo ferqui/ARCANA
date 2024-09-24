@@ -9,7 +9,7 @@ DynapSEtorch's documentation
 
 Getting started
 ---------------
-:ref:`Install DynapSEtorch <installation>` via pypi or anaconda.
+:ref:`Install ARCANA <installation>` via pypi or anaconda.
 
 .. include:: about/citation.rst
 
