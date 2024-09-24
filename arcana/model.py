@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import init
 from typing import Callable, Optional, Sequence
-from dynapsetorch.surrogate import fast_sigmoid, triangular, step
+from arcana.surrogate import fast_sigmoid, triangular, step
 
 import numpy as np
 
