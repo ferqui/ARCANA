@@ -1,4 +1,4 @@
-DynapSEtorch's documentation
+ARCANA's documentation
 ============================
 
 .. note::

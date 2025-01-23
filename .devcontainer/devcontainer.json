@@ -1,0 +1,26 @@
+{
+	"name": "Python 3",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"hostRequirements": {
+		"gpu": "optional"
+	},
+	"runArgs": [
+		"--gpus=all",
+		"--privileged"
+	],
+	"customizations": {
+		// Configure properties specific to VS Code.
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.flake8",
+				"ms-toolsai.jupyter",
+				"ms-python.vscode-pylance",
+				"ms-python.debugpy"
+			]
+		}
+	},
+	"postCreateCommand": "pip install -e \".[dev,cuda]\""
+}

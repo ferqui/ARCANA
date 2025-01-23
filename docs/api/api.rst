@@ -4,7 +4,7 @@ API reference
 .. toctree::
    :maxdepth: 2
 
-   DynapSEtorch
+   ARCANA
    datasets
    model
    surrogate

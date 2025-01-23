@@ -4,6 +4,6 @@ surrogate
 How to use surrogate
 --------------------
 
-.. automodule:: dynapsetorch.surrogate
+.. automodule:: arcana.surrogate
     :members:
     :show-inheritance:

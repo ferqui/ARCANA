@@ -1,16 +1,13 @@
 import os
-import torch
 import pickle
-import numpy as np
-
-from tonic.dataset import Dataset
-from scipy import ndimage, signal
-from typing import Callable, Optional, Sequence
-from sklearn import preprocessing
 from pathlib import Path
+from typing import Callable, Optional, Sequence
 
-from scipy import signal, ndimage
-from scipy.interpolate import interp1d
+import numpy as np
+import torch
+from scipy import signal
+from sklearn import preprocessing
+from tonic.dataset import Dataset
 
 
 class RoshamboDataset(Dataset):

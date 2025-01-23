@@ -4,6 +4,6 @@ Datasets
 EMG datasets
 -------------------
 
-.. automodule:: dynapsetorch.datasets.EMG
+.. automodule:: arcana.datasets.EMG
     :members:
     :show-inheritance:

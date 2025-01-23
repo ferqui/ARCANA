@@ -6,7 +6,7 @@ class FastSigmoid(torch.autograd.Function):
     Apply the fast-sigmoid gradient as a surrogated gradient for the heavyside step function.
 
     .. math::
-       \\frac{\\partial S}{\\partial V} = \\frac{1}{(\\lambda \left|v\\right| + 1.0)^2}
+       \\frac{\\partial S}{\\partial V} = \\frac{1}{(\\lambda \\left|v\\right| + 1.0)^2}
 
     Where :math:`\\lambda` is a scale factor with default value 10.
     """

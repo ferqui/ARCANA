@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from typing import Optional, Callable, Sequence
-from arcana.model import LIF, AdexLIF, ADM
+
+from arcana.model import ADM, LIF, AdexLIF
 from arcana.surrogate import fast_sigmoid
 
 

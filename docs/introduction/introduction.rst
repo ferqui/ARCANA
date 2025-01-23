@@ -1,6 +1,6 @@
 Introduction
 ============
 
-Dynapse model
+Dynap-SE model
 Equation
 Image

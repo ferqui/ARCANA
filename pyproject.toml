@@ -1,31 +1,69 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
 name = "ARCANA"
-version = "1.0.0"
+dynamic = ["version"]
+requires-python = ">= 3.10"
+authors = [
+  {name = "Fernando M. Quintana", email = "f.m.quintana.velazquez@rug.nl"},
+]
+maintainers = [
+  {name = "Fernando M. Quintana", email = "f.m.quintana.velazquez@rug.nl"}
+]
 description = "ARCANA neural model simulation on PyTorch."
-authors = ["Fernando M. Quintana <fernando.quintana@uca.es>"]
-license = "GNU General Public License v3 (GPLv3)"
+license = {file = "LICENSE"}
 readme = "README.md"
 
-[tool.poetry.dependencies]
-python = "^3.7"
-torch = ">=1.12.1"
-numpy = [{ version = "^1.21.6", python = "~3.7"},
-         { version = "^1.23.4", python = "~3.8"}]
-matplotlib = [{ version = "^3.5.3", python = "~3.7"},
-              { version = "^3.6.1", python = "~3.8"}]
-tonic = "^1.2.2"
-tensorboard = "^2.10.1"
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "torch",
+  "numpy",
+  "matplotlib",
+  "seaborn",
+  "tonic",
+  "tensorboard",
+  "boilerplot@git+https://github.com/fehlings/boilerplot.git",
+]
 
-[tool.poetry.group.dev.dependencies]
-Sphinx = ">=4.0"
-sphinx-book-theme = "^0.3.3"
-myst-nb = "^0.17.1"
-pbr = "^5.11.0"
-ipywidgets = "^8.0.2"
-pre-commit = "^2.20.0"
-black = {extras = ["jupyter"], version = "^22.10.0"}
-pytest = "^7.2.0"
+[project.optional-dependencies]
+dev = [
+  "pre-commit",
+  "black[jupyter]",
+  "isort",
+  "flake8-black",
+  "flake8-isort",
+  "sphinx>=4.0",
+  "sphinx-book-theme",
+  "myst_nb",
+  "pytest"
+]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+path = "arcana/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+include = [
+  "arcana/",
+]
+
+[project.urls]
+Homepage = "https://github.com/ferqui/ARCANA"
+Documentation = "https://dynapsetorch.readthedocs.io/en/latest/"
+Repository = "https://github.com/ferqui/ARCANA"

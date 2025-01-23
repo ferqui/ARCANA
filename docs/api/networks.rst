@@ -4,6 +4,6 @@ Networks
 How to use networks
 --------------------
 
-.. automodule:: dynapsetorch.networks
+.. automodule:: arcana.networks
     :members:
     :show-inheritance:

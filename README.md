@@ -12,7 +12,7 @@ Image
 ## Installation
 
 ```
-pip install git+https://github.com/ferqui/DynapSEtorch.git
+pip install git+https://github.com/ferqui/ARCANA.git
 ```
 
 ## Examples
@@ -30,14 +30,14 @@ pip install git+https://github.com/ferqui/DynapSEtorch.git
 If you want to contribute to this package development code, you can install it in edit mode:
 
 ```
-git clone https://github.com/ferqui/DynapSEtorch.git
-cd DynapSEtorch
+git clone https://github.com/ferqui/ARCANA.git
+cd ARCANA
 pip install -e .
 ```
 
 ## Acknowledgments
 
-DynapSEtorch is currently maintained by the University of Cádiz and The Institute of Neuroinformatics (INI), UZH and ETHZ. It was initially developed by Fernando M. Quintana.
+ARCANA is currently maintained by the University of Cádiz and The Institute of Neuroinformatics (INI), UZH and ETHZ. It was initially developed by Fernando M. Quintana.
 
 Additional contributions were made by ....
 
@@ -49,13 +49,13 @@ LINK to reference
 
 ```
 @misc{quintana2024ARCANA,
-    title={A Realistic Simulation Framework for Analog/Digital Neuromorphic Architectures}, 
+    title={A Realistic Simulation Framework for Analog/Digital Neuromorphic Architectures},
     author={Fernando M. Quintana and Maryada and Pedro L. Galindo and Elisa Donati and Giacomo Indiveri and Fernando Perez-Peña},
     year={2024},
     eprint={2409.14918},
     archivePrefix={arXiv},
     primaryClass={cs.NE},
-    url={https://arxiv.org/abs/2409.14918}, 
+    url={https://arxiv.org/abs/2409.14918},
 }
 ```
 

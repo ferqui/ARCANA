@@ -4,6 +4,6 @@ model
 How to use model
 ----------------
 
-.. automodule:: dynapsetorch.model
+.. automodule:: arcana.model
     :members:
     :show-inheritance:

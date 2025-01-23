@@ -1,26 +1,10 @@
-name: DynapSEtorch
+name: ARCANA
 channels:
   - conda-forge
-  - pytorch 
+  - pytorch
   - defaults
 dependencies:
-  - python=3.8
   - pytorch
   - torchvision
   - torchaudio
-  - cudatoolkit=11.6
-  - pip>=22.3
-  - pre-commit=2.20.0
-  - pip:
-    - numpy
-    - matplotlib
-    - brian2
-    - sympy==1.4
-    - jupyter
-    - jupyterlab
-    - tonic
-    - sphinx>=4.0
-    - sphinx-book-theme
-    - myst_nb
-    - pbr
-    - ipywidgets
+  - pytorch-cuda=12.4

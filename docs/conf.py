@@ -1,5 +1,3 @@
-import dynapsetorch
-
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -9,7 +7,7 @@ import dynapsetorch
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "ARCANA"
-copyright = "2022, Fernando M. Quintana"
+copyright = "2025, Fernando M. Quintana"
 author = "Fernando M. Quintana"
 
 master_doc = "index"
@@ -51,7 +49,7 @@ html_show_sourcelink = True
 html_sourcelink_suffix = ""
 
 html_theme_options = {
-    "repository_url": "https://github.com/ferqui/DynapSEtorch",
+    "repository_url": "https://github.com/ferqui/ARCANA",
     "use_repository_button": True,
     "use_issues_button": True,
     "use_edit_page_button": True,
