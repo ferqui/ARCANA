@@ -3,7 +3,8 @@ import torch
 
 class FastSigmoid(torch.autograd.Function):
     """Fast-sigmoid surrogated gradient
-    Apply the fast-sigmoid gradient as a surrogated gradient for the heavyside step function.
+    Apply the fast-sigmoid gradient as a surrogated gradient \
+    for the heavyside step function.
 
     .. math::
        \\frac{\\partial S}{\\partial V} = \\frac{1}{(\\lambda \\left|v\\right| + 1.0)^2}
@@ -88,7 +89,8 @@ step = Step.apply
 
 class Triangular(torch.autograd.Function):
     """Triangular surrogated gradient
-    Apply the triangular function as a surrogated gradient for the heavyside step function.
+    Apply the triangular function as a surrogated gradient \
+    for the heavyside step function.
 
     .. math::
        \\frac{\\partial S}{\\partial V} = \\lambda max(1 - \\left|V\\right|, 0)

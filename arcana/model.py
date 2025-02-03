@@ -80,11 +80,9 @@ class DPINeuron(nn.Module):
         # Parameters
         self.Itau_mem = kwargs.get("Itau_mem", 5e-12) * SCALING
         self.Igain_mem = kwargs.get("Igain_mem", 20e-12) * SCALING
-        self.tau_mem = (
-            (DPINeuron.UT / DPINeuron.KAPPA) * DPINeuron.CMEM
-        ) / self.Itau_mem  # Soma time constant
 
-        # Alpha and beta are trainable parameters that depends on leakage and gain current
+        # Alpha and beta are trainable parameters
+        # that depends on leakage and gain current
         self.alpha = nn.Parameter(
             torch.tensor(self.Igain_mem / self.Itau_mem), requires_grad=train_Igain_mem
         )
@@ -99,43 +97,61 @@ class DPINeuron(nn.Module):
         # Other neuron parameters
         self.refP = kwargs.get("refractory", 0.0)
         self.Ith = kwargs.get("Ith", 2000.0e-12) * SCALING  # Firing threshold
-        Idc = kwargs.get("Idc", 1e-12) * SCALING
-        self.Idc = nn.Parameter(torch.tensor(Idc), requires_grad=train_Idc)  # Input DC
+        self.Idc = nn.Parameter(
+            torch.tensor(kwargs.get("Idc", 1e-12) * SCALING), requires_grad=train_Idc
+        )
 
         # AMPA
         self.train_ampa = train_ampa
         self.Itau_ampa = kwargs.get("Itau_ampa", 20e-12) * SCALING
         self.Igain_ampa = kwargs.get("Igain_ampa", 80e-12) * SCALING
-        Iw_ampa = kwargs.get("Iw_ampa", 80e-12) * SCALING
-        self.Iw_ampa = nn.Parameter(torch.tensor(Iw_ampa), requires_grad=train_ampa)
+        self.Iw_ampa = nn.Parameter(
+            torch.tensor(kwargs.get("Iw_ampa", 80e-12) * SCALING),
+            requires_grad=train_ampa,
+        )
         if train_ampa:
             self.Iw_ampa.register_hook(lambda grad: grad * 1e-12)
         self.W_ampa = nn.Parameter(torch.empty(n_out, n_in), requires_grad=train_ampa)
-        self.tau_ampa = (
-            (DPINeuron.UT / DPINeuron.KAPPA) * DPINeuron.CAMPA
-        ) / self.Itau_ampa  # AMPA time constant
 
         # gabab
         self.train_gabab = train_gabab
         self.Itau_gabab = kwargs.get("Itau_gabab", 20e-12) * SCALING
         self.Igain_gabab = kwargs.get("Igain_gabab", 80e-12) * SCALING
-        Iw_gabab = kwargs.get("Iw_gabab", 80e-12) * SCALING
-        self.Iw_gabab = nn.Parameter(torch.tensor(Iw_gabab), requires_grad=train_ampa)
+        self.Iw_gabab = nn.Parameter(
+            torch.tensor(kwargs.get("Iw_gabab", 80e-12) * SCALING),
+            requires_grad=train_gabab,
+        )
         if train_gabab:
             self.Iw_gabab.register_hook(lambda grad: grad * 1e-12)
         self.W_gabab = nn.Parameter(torch.empty(n_out, n_in), requires_grad=train_ampa)
-        self.tau_gabab = (
-            (DPINeuron.UT / DPINeuron.KAPPA) * DPINeuron.CGABA_B
-        ) / self.Itau_gabab  # AMPA time constant
 
         # Weights initialization
         nn.init.constant_(self.W_ampa, 1.0)
         nn.init.constant_(self.W_gabab, 1.0)
 
-        self.ampa_mismatch = torch.ones(1, self.n_out)
-        self.gabab_mismatch = torch.ones(1, self.n_out)
-        # self.add_mismatch(kwargs.get("mismatch", 0.1))
+        # Mismatch parameters
+        self.register_buffer("_Idc_mismatch", torch.zeros(1, self.n_out))
+
+        self.register_buffer("_Itau_mem_mismatch", torch.zeros(1, self.n_out))
+        self.register_buffer("_Igain_mem_mismatch", torch.zeros(1, self.n_out))
+
+        self.register_buffer("_Itau_ampa_mismatch", torch.zeros(1, self.n_out))
+        self.register_buffer("_Igain_ampa_mismatch", torch.zeros(1, self.n_out))
+        self.register_buffer("_Iw_ampa_mismatch", torch.zeros(1, self.n_out))
+
+        self.register_buffer("_Itau_gabab_mismatch", torch.zeros(1, self.n_out))
+        self.register_buffer("_Igain_gabab_mismatch", torch.zeros(1, self.n_out))
+        self.register_buffer("_Iw_gabab_mismatch", torch.zeros(1, self.n_out))
+
         self.state = None
+
+    def add_mismatch(self, param: str, mismatch: float = 0.1):
+        try:
+            mismatch_parameter = getattr(self, f"_{param}_mismatch")
+            torch.nn.init.normal_(mismatch_parameter, mean=0.0, std=mismatch)
+
+        except AttributeError:
+            raise AttributeError(f"DPINeuron as not mismatch on attribute {param}")
 
     def initialize(self, X):
         Imem = torch.zeros(X.shape[0], self.n_out, device=X.device) + self.I0
@@ -172,6 +188,57 @@ class DPINeuron(nn.Module):
         Iahp = DPINeuron.I0
         Inmda = DPINeuron.I0
 
+        # Apply mismatch
+        Idc = torch.clamp_min(self.Idc * (1 + self._Idc_mismatch), DPINeuron.I0)
+
+        Itau_mem = torch.clamp_min(
+            self.Itau_mem * (1 + self._Itau_mem_mismatch), DPINeuron.I0
+        )
+        Igain_mem = torch.clamp_min(
+            self.Igain_mem * (1 + self._Igain_mem_mismatch), DPINeuron.I0
+        )
+
+        Itau_ampa = torch.clamp_min(
+            self.Itau_ampa * (1 + self._Itau_ampa_mismatch), DPINeuron.I0
+        )
+        Igain_ampa = torch.clamp_min(
+            self.Igain_ampa * (1 + self._Igain_ampa_mismatch), DPINeuron.I0
+        )
+        Iw_ampa = torch.clamp_min(
+            self.Iw_ampa * (1 + self._Iw_ampa_mismatch), DPINeuron.I0
+        )
+
+        Itau_gabab = torch.clamp_min(
+            self.Itau_gabab * (1 + self._Itau_gabab_mismatch), DPINeuron.I0
+        )
+        Igain_gabab = torch.clamp_min(
+            self.Igain_gabab * (1 + self._Igain_gabab_mismatch), DPINeuron.I0
+        )
+        Iw_gabab = torch.clamp_min(
+            self.Iw_gabab * (1 + self._Iw_gabab_mismatch), DPINeuron.I0
+        )
+
+        alpha = (
+            self.alpha * (1 + self._Igain_mem_mismatch) / (1 + self._Itau_mem_mismatch)
+        )
+        beta_mismatch = (
+            DPINeuron.I0 + self.Itau_mem * (1 + self._Itau_mem_mismatch)
+        ) / ((self._Itau_mem_mismatch + 1) * (DPINeuron.I0 + self.Itau_mem))
+        beta = self.beta * beta_mismatch.detach()
+
+        # Calculate tau
+        tau_mem = (
+            (DPINeuron.UT / DPINeuron.KAPPA) * DPINeuron.CMEM
+        ) / Itau_mem  # AMPA time constant
+
+        tau_ampa = (
+            (DPINeuron.UT / DPINeuron.KAPPA) * DPINeuron.CAMPA
+        ) / Itau_ampa  # AMPA time constant
+
+        tau_gabab = (
+            (DPINeuron.UT / DPINeuron.KAPPA) * DPINeuron.CGABA_B
+        ) / Itau_gabab  # AMPA time constant
+
         # Synapse
         numSynAmpa = torch.nn.functional.linear(X, round(self.W_ampa))
         numSyngabab = torch.nn.functional.linear(X, round(self.W_gabab))
@@ -179,29 +246,18 @@ class DPINeuron(nn.Module):
             numSynAmpa.register_hook(lambda grad: grad * 1e10)
             numSyngabab.register_hook(lambda grad: grad * 1e10)
 
-        dIampa = -Iampa / self.tau_ampa
-        Iampa = (
-            Iampa
-            + (self.Igain_ampa / self.Itau_ampa)
-            * self.Iw_ampa
-            * self.ampa_mismatch
-            * numSynAmpa
-        )
+        # Synapse derivatives
+        dIampa = -Iampa / tau_ampa
+        Iampa = Iampa + (Igain_ampa / Itau_ampa) * Iw_ampa * numSynAmpa
 
-        dIgabab = -Igabab / self.tau_gabab
-        Igabab = (
-            Igabab
-            + (self.Igain_gabab / self.Itau_gabab)
-            * self.Iw_gabab
-            * self.gabab_mismatch
-            * numSyngabab
-        )
+        dIgabab = -Igabab / tau_gabab
+        Igabab = Igabab + (Igain_gabab / Itau_gabab) * Iw_gabab * numSyngabab
 
         # Soma
         # Input current
-        Iin = self.Idc + Iampa + Inmda - Igabab
+        Iin = Idc + Iampa + Inmda - Igabab
         Iin = Iin * (refractory <= 0)
-        Iin = torch.clamp_min(Iin, self.I0)
+        Iin = torch.clamp_min(Iin, DPINeuron.I0)
 
         # Positive feedback
         Ifb = (
@@ -209,14 +265,12 @@ class DPINeuron(nn.Module):
             * Imem ** (DPINeuron.KAPPA / (DPINeuron.KAPPA + 1))
             / (1 + torch.exp(-self.Ipfb_norm * (Imem - self.Ipfb_th)))
         )
-        f_imem = (Ifb / self.Itau_mem) * (Imem + self.Igain_mem)
+        f_imem = (Ifb / Itau_mem) * (Imem + Igain_mem)
 
         # Soma derivative
-        dImem = (
-            self.alpha * (Iin - self.Itau_mem - Iahp)
-            - self.beta * Imem
-            + f_imem.detach()
-        ) / (self.tau_mem * (1 + self.Igain_mem / Imem))
+        dImem = (alpha * (Iin - Itau_mem - Iahp) - beta * Imem + f_imem.detach()) / (
+            tau_mem * (1 + Igain_mem / Imem)
+        )
 
         # Gradient update
         Imem = Imem + dImem * self.dt
