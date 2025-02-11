@@ -48,6 +48,7 @@ class DelayChain(nn.Module):
         )
         return ro_spikes, pool_spikes
 
+
 @DeprecationWarning
 class EIBalancedNetwork(nn.Module):
     """EI-balanced network"""

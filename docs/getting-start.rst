@@ -14,7 +14,7 @@ Image
 Quickstart
 ----------
 The following code demonstrate how to define a simple neural network in ARCANA. In this example a single neuron is created with and trained the leakage and gain current to have an specific output firing rate.
-	
+
 .. code-block:: python
     :linenos:
 

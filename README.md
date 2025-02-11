@@ -12,20 +12,20 @@ $$I_\infty = \frac{I_{g}}{I_\tau}(I_{in} - I_{ahp} - I_\tau)$$
 Where the $I_g$, $I_\tau$ are the gain and leakage currents, $I_{ahp} the adaptation current responsible of spike-frequency adaptation. $I_\infty$ the maximum current that the neuron would reach asymptotically, and $I_{in}$ the input current from the synapses.
 
 The term $f(I_{mem})$ represents the positive feedback current that makes the neuron potential to increase exponentially when it reach an especific threshold.
-$$f(I_{mem}) = \frac{I_{fb}}{I_{\tau}}(I_{mem} - I_{g})$$ 
+$$f(I_{mem}) = \frac{I_{fb}}{I_{\tau}}(I_{mem} - I_{g})$$
 $$I_{fb} = \frac{I_0^{\frac{1}{\kappa+1}}I_{mem}^{\frac{\kappa}{\kappa+1}}}{1 + e^{-\alpha(I_{mem} - I_{g})}}$$
 Where $\alpha$ and $I_g$ are tunneable parameters, $I_0$ the dark current and $\kappa$ the transistor slope factor.
 
 ARCANA simulate also the different synapse types that DYNAP-SE implemented: AMPA, NMDA, GABAa, and GABAb. AMPA and NMDA synapses, All implementing DPI circuits, follow the equation
 $$\tau\frac{d}{dt}I_{syn} + I_{syn} = \frac{I_g}{I_\tau}I_w$$
 
-In the case of AMPA and NMDA synapses, both are excitatory, GABAa and GABAb are inhibitory. 
+In the case of AMPA and NMDA synapses, both are excitatory, GABAa and GABAb are inhibitory.
 NMDA synapse additionally is voltage gated. This mechanism makes the synaptic current dependent on the neuron’s membrane potential reaching a specific threshold.
 
 ## Quickstart
 
 The following code demonstrate how to define a simple neural network in ARCANA. In this example a single neuron is created with and trained the leakage and gain current to have an specific output firing rate.
-	
+
 ```
 import matplotlib.pyplot as plt
 import numpy as np

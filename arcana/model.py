@@ -28,7 +28,6 @@ SCALING = 1
 
 
 class DPINeuron(nn.Module):
-
     """
     DPI neuron model used in Dynap-SE chip, including AMPA, NMDA, GABAa and GABAb synapses.
     The bias parameters of the neurons areÑ
@@ -86,7 +85,7 @@ class DPINeuron(nn.Module):
     CGABA_A: float = 2e-12 * SCALING  # AMPA synapse capacitance
     CGABA_B: float = 2e-12 * SCALING  # AMPA synapse capacitance
     MAX_FANIN: float = 64  # Maximum number of input synapses per neuron
-    
+
     def __init__(
         self,
         n_in: int,
@@ -476,7 +475,7 @@ class ADM(nn.Module):
             spikes produced by the ADM module.
         Everytime the algorithm receives an UP/DOWN spike, the \
             reconstructed signal is increment/decrement by the UP/DOWN threshold amount.
-        
+
         Parameters
         ----------
         spikes: Input spikes from where the signal is reconstructed.
