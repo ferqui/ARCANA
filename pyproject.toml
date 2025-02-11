@@ -36,6 +36,9 @@ dependencies = [
   "tonic",
   "tensorboard",
   "boilerplot@git+https://github.com/fehlings/boilerplot.git",
+  "sphinx>=4.0",
+  "sphinx-book-theme",
+  "myst_nb",
 ]
 
 [project.optional-dependencies]
@@ -45,9 +48,6 @@ dev = [
   "isort",
   "flake8-black",
   "flake8-isort",
-  "sphinx>=4.0",
-  "sphinx-book-theme",
-  "myst_nb",
   "pytest"
 ]
 
