@@ -114,5 +114,5 @@ Finally we train the network for 20 epochs, and we see difference of the model b
     Imem_post, Vmem_post = test(neuron)
 
 
-.. image:: ../_static/single_neuron.svg
+.. image:: _static/single_neuron.svg
   :alt: Single neuron training
