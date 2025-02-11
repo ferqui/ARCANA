@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 
-from arcana.model import ADM, LIF, AdexLIF
+from arcana.model import ADM, DPINeuron
 from arcana.surrogate import fast_sigmoid
 
 
+@DeprecationWarning
 class DelayChain(nn.Module):
     """Delay chain network"""
 
@@ -16,10 +17,13 @@ class DelayChain(nn.Module):
         self.adm_encoder = ADM(n_channels, 1.0, 1.0, 0)
         self.pool_layer = nn.ModuleList()
         for _ in range(n_pool):
-            pool = AdexLIF(n_channels * 2, [0, n_channels * 2, 0, 0])
-            pool.weight_ampa.data *= torch.eye(n_channels * 2)
+            pool = DPINeuron(n_channels * 2, n_channels * 2)
+            pool.W_ampa.data = torch.eye(n_channels * 2)
+            pool.W_nmda.data *= 0
+            pool.W_gabaa.data *= 0
+            pool.W_gabab.data *= 0
             self.pool_layer.append(pool)
-        self.readout = AdexLIF(n_out, [0, n_pool * n_channels * 2, 0, 0])
+        self.readout = DPINeuron(n_pool * n_channels * 2, n_out)
 
     def reset(self):
         self.adm_encoder.reset()
@@ -44,71 +48,7 @@ class DelayChain(nn.Module):
         )
         return ro_spikes, pool_spikes
 
-
-class DelayChainLIF(nn.Module):
-    """Delay chain network using LIF neurons"""
-
-    def __init__(
-        self,
-        n_channels: int,
-        n_pool: int,
-        n_out: int,
-        thr: float = 1.0,
-        tau: float = 20.0,
-        dt: float = 1.0,
-        activation_fn: torch.autograd.Function = fast_sigmoid,
-    ):
-        super(DelayChainLIF, self).__init__()
-
-        self.n_pool = n_pool
-        self.n_channels = n_channels
-        self.adm_encoder = ADM(n_channels, 1.0, 1.0, 0)
-        self.pool_layer = nn.ModuleList()
-        for _ in range(n_pool):
-            pool = LIF(
-                n_channels * 2,
-                n_channels * 2,
-                thr=thr,
-                tau=tau,
-                dt=dt,
-                activation_fn=activation_fn,
-            )
-            pool.base_layer.weight.data = torch.eye(n_channels * 2) * 1
-            self.pool_layer.append(pool)
-        self.readout = LIF(
-            n_pool * n_channels * 2,
-            n_out,
-            thr=thr,
-            tau=tau,
-            dt=dt,
-            activation_fn=activation_fn,
-        )
-
-    def reset(self):
-        self.adm_encoder.reset()
-        for layer in self.pool_layer:
-            layer.reset()
-        self.readout.reset()
-
-    def forward(self, input):
-        in_spikes, _, _ = self.adm_encoder(input)
-        adm_spikes = in_spikes
-        out_spikes = []
-        for pool in self.pool_layer:
-            if pool.state is None:
-                pool.init_state(in_spikes)
-            s_o = pool(in_spikes)
-            out_spikes.append(s_o)
-            in_spikes = s_o
-        pool_spikes = torch.stack(out_spikes, dim=1)
-        if self.readout.state is None:
-            self.readout.init_state(pool_spikes)
-        ro_spikes = self.readout(
-            pool_spikes.view(-1, self.n_pool * self.n_channels * 2)
-        )
-        return ro_spikes, pool_spikes, adm_spikes
-
-
+@DeprecationWarning
 class EIBalancedNetwork(nn.Module):
     """EI-balanced network"""
 
@@ -125,10 +65,10 @@ class EIBalancedNetwork(nn.Module):
         self.n_class = n_class
         self.ex_per_class = ex_per_class
 
-        self.ex_layer = AdexLIF(
+        self.ex_layer = DPINeuron(
             ex_per_class * n_class, [n_in, 0, 0, n_class], activation_fn=activation_fn
         )
-        self.in_layer = AdexLIF(
+        self.in_layer = DPINeuron(
             n_class,
             [ex_per_class * n_class, 0, 0, n_class],
             activation_fn=activation_fn,

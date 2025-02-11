@@ -8,6 +8,10 @@ from arcana.surrogate import fast_sigmoid
 
 
 class Round(torch.autograd.function.InplaceFunction):
+    """
+    Round operation with straight through stimator surrogate gradient.
+    """
+
     @staticmethod
     def forward(ctx, input):
         ctx.input = input
@@ -24,6 +28,55 @@ SCALING = 1
 
 
 class DPINeuron(nn.Module):
+
+    """
+    DPI neuron model used in Dynap-SE chip, including AMPA, NMDA, GABAa and GABAb synapses.
+    The bias parameters of the neurons areÑ
+    | Parameter | Description |
+    | :-------- | :---------- |
+    | Itau_mem  | Soma leakage current |
+    | Igain_mem | Soma gain current |
+    | Ipfb_th   | Positive feedback bias |
+    | Ipfb_norm | Positive feedback normalization |
+    | refractory | Refractory period |
+    | Ith       | Firing threshold |
+    | Idc       | Input constant current |
+    | Itau_ampa | AMPA synapse leakage current |
+    | Igain_ampa | AMPA synapse gain current |
+    | Iw_ampa   | AMPA synapse base weight |
+    | Inmda_thr | NMDA synapse threshold |
+    | Itau_nmda | NMDA synapse leakage current |
+    | Igain_nmda | NMDA synapse gain current |
+    | Iw_nmda   | NMDA synapse base weight |
+    | Itau_gabaa | GABAa synapse leakage current |
+    | Igain_gabaa | GABAa synapse gain current |
+    | Iw_gabaa   | GABAa synapse base weight |
+    | Itau_gabab | GABAb synapse leakage current |
+    | Igain_gabab | GABAb synapse gain current |
+    | Iw_gabab   | GABAb synapse base weight |
+
+    Parameters
+    ----------
+    n_in: int
+        Number of input synapses
+    n_out: int
+        Number of neuron in the layer
+    dt: float
+        Simulation timestep in seconds
+    surrogate_fn: Callable
+        Surrogate gradient function for spiking
+    train_Itau_mem: bool
+        Flag to train the membrane leakage current bias
+    train_Igain_mem: bool
+        Flag to train the membrane input gain bias
+    train_Idc: bool
+        Flag to train the input constant current
+    train_ampa: bool
+        Flag to train the ampa weight matrix
+    train_gabab: bool
+        Flag to train the gaba_b weight matrix
+    """
+
     I0: float = 0.5e-13 * SCALING  # Dark current
     UT: float = 25e-3  # Thermal voltage
     KAPPA: float = (0.75 + 0.66) / 2  # Transistor slope factor
@@ -33,7 +86,7 @@ class DPINeuron(nn.Module):
     CGABA_A: float = 2e-12 * SCALING  # AMPA synapse capacitance
     CGABA_B: float = 2e-12 * SCALING  # AMPA synapse capacitance
     MAX_FANIN: float = 64  # Maximum number of input synapses per neuron
-
+    
     def __init__(
         self,
         n_in: int,
@@ -47,30 +100,6 @@ class DPINeuron(nn.Module):
         train_gabab: bool = False,
         **kwargs,
     ):
-        """
-        DPI neuron model used in Dynap-SE chip.
-
-        Attributes
-        ----------
-        n_in: int
-            Number of input synapses
-        n_out: int
-            Number of neuron in the layer
-        dt: float
-            Simulation timestep in seconds
-        surrogate_fn: Callable
-            Surrogate gradient function for spiking
-        train_Itau_mem: bool
-            Flag to train the membrane leakage current bias
-        train_Igain_mem: bool
-            Flag to train the membrane input gain bias
-        train_Idc: bool
-            Flag to train the input constant current
-        train_ampa: bool
-            Flag to train the ampa weight matrix
-        train_gabab: bool
-            Flag to train the gaba_b weight matrix
-        """
         super(DPINeuron, self).__init__()
 
         self.n_in = n_in
@@ -173,6 +202,13 @@ class DPINeuron(nn.Module):
         self.state = None
 
     def add_mismatch(self, param: str, mismatch: float = 0.1):
+        """
+        The DPINeuron can include mismatch in the biases by calling this function with the name of the bias and the percentage of variability.
+        Parameters
+        ----------
+        param: Bias name to apply the mismatch.
+        mismatch: Percentage of variability to apply [0-1]
+        """
         try:
             mismatch_parameter = getattr(self, f"_{param}_mismatch")
             torch.nn.init.normal_(mismatch_parameter, mean=0.0, std=mismatch)
@@ -181,6 +217,9 @@ class DPINeuron(nn.Module):
             raise AttributeError(f"DPINeuron as not mismatch on attribute {param}")
 
     def initialize(self, X):
+        """
+        Initialize the internal state of the DPINeuron based on an input sample.
+        """
         Imem = torch.zeros(X.shape[0], self.n_out, device=X.device) + self.I0
         Iampa = torch.zeros(X.shape[0], self.n_out, device=X.device) + self.I0
         Inmda = torch.zeros(X.shape[0], self.n_out, device=X.device) + self.I0
@@ -192,13 +231,22 @@ class DPINeuron(nn.Module):
 
     @staticmethod
     def I2V(current: float) -> float:
+        """
+        Convert a current value into a voltage based on the parameters of the DPINeuron
+        """
         return (DPINeuron.UT / DPINeuron.KAPPA) * torch.log(current / DPINeuron.I0)
 
     @staticmethod
     def V2I(voltage: float) -> float:
+        """
+        Convert a voltage value into a current based on the parameters of the DPINeuron
+        """
         return DPINeuron.I0 * np.exp(voltage * DPINeuron.KAPPA / DPINeuron.UT)
 
     def UpdateParams(self, optimizer, args, kwargs):
+        """
+        Call each time to gradient optimization is called to update correctly the neuron parameters.
+        """
         self.Itau_mem = DPINeuron.I0 / (self.beta - 1)
         self.Igain_mem = self.alpha * self.Itau_mem
         self.tau_mem = (DPINeuron.UT / DPINeuron.KAPPA) * DPINeuron.CMEM / self.Itau_mem
@@ -377,3 +425,110 @@ class DPINeuron(nn.Module):
         state = (Imem, Iampa, Inmda, Igabaa, Igabab, refractory)
 
         return spike, state
+
+
+class ADM(nn.Module):
+    """Adaptive Delta Modulation (ADM) module
+    Converts an analog signal into UP and DOWN \
+        spikes using the Adaptive Delta Modulation scheme.
+    """
+
+    def __init__(
+        self,
+        N: int,
+        threshold_up: float,
+        threshold_down: float,
+        refractory: int,
+        surrogate_fn: Callable = fast_sigmoid,
+    ):
+        """
+        Parameters
+        ----------
+        N: int
+            Number of input synapses
+        threshold_up: float
+            Threshold for UP spike
+        threshold_down: float
+            Threshold for DOWN spike
+        refractory: int
+            Refractory period
+        surrogate_fn: Callable
+            Surrogate gradient function for spiking
+        """
+        super(ADM, self).__init__()
+
+        self.activation_fn = surrogate_fn
+        self.refractory = nn.Parameter(
+            torch.tensor(refractory).float(), requires_grad=True
+        )
+        self.N = N
+        self.thr_up = nn.Parameter(torch.tensor(threshold_up), requires_grad=True)
+        self.thr_down = nn.Parameter(torch.tensor(threshold_down), requires_grad=True)
+
+        self.reset()
+
+    def reset(self):
+        self.refrac = None
+        self.DC_Voltage = None
+
+    def reconstruct(self, spikes, initial_value=0):
+        """Reconstruct an analog signal based on the UP and DOWN \
+            spikes produced by the ADM module.
+        Everytime the algorithm receives an UP/DOWN spike, the \
+            reconstructed signal is increment/decrement by the UP/DOWN threshold amount.
+        
+        Parameters
+        ----------
+        spikes: Input spikes from where the signal is reconstructed.
+        initial_value: Initial reconstructed signal value.
+        """
+        reconstructed = torch.zeros(
+            spikes.shape[0], spikes.shape[1], spikes.shape[2] // 2
+        )
+        reconstructed[:, 0, :] = initial_value
+        for t in range(1, spikes.shape[1]):
+            spikes_p = spikes[:, t, : -spikes.shape[-1] // 2]
+            spikes_n = spikes[:, t, spikes.shape[-1] // 2 :]
+
+            reconstructed[:, t] = (
+                reconstructed[:, t - 1]
+                + self.thr_up * spikes_p
+                - self.thr_down * spikes_n
+            )
+
+        return reconstructed
+
+    def forward(self, input_signal):
+        if self.DC_Voltage is None:
+            output = torch.zeros(
+                input_signal.shape[0], self.N * 2, device=input_signal.device
+            )
+            output_p = torch.zeros_like(input_signal)
+            output_n = torch.zeros_like(input_signal)
+            self.refrac = torch.zeros_like(input_signal)
+            self.DC_Voltage = input_signal
+        else:
+            output_p = (
+                self.activation_fn(
+                    (input_signal - (self.DC_Voltage.detach() + self.thr_up))
+                )
+                * (self.refrac == 0).float()
+            )
+            self.refrac = output_p * self.refractory + (1 - output_p) * self.refrac
+
+            output_n = (
+                self.activation_fn(
+                    ((self.DC_Voltage.detach() - self.thr_down) - input_signal)
+                )
+                * (self.refrac == 0).float()
+            )
+            self.refrac = output_n * self.refractory + (1 - output_n) * self.refrac
+
+            change_v = (self.refrac == 1).float()
+            self.DC_Voltage = change_v * input_signal + (1 - change_v) * self.DC_Voltage
+
+            output = torch.cat([output_p, output_n], dim=1)
+
+            self.refrac = torch.nn.functional.relu(self.refrac - 1)
+
+        return output, output_p, output_n

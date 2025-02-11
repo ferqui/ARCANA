@@ -5,11 +5,9 @@ ARCANA's documentation
 
    This project is under active development.
 
-.. include:: introduction/introduction.rst
-
 Getting started
 ---------------
-:ref:`Install ARCANA <installation>` via pypi or anaconda.
+:ref:`Install ARCANA <installation>` via pypi or anaconda and continue in the :ref:`introduction <introduction>` for a small tutorial.
 
 .. include:: about/citation.rst
 
@@ -18,9 +16,10 @@ Getting started
 .. include:: about/copyright.rst
 
 .. toctree::
+   :maxdepth: 2
    :hidden:
 
-   introduction/introduction
-   getting_started/getting-start
-   examples/examples
+   install
+   getting-start
+   examples
    api/api.rst
